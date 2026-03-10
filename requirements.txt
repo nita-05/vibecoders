@@ -4,3 +4,5 @@ pydantic
 openai
 httpx
 python-dotenv
+motor
+motor
