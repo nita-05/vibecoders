@@ -21,8 +21,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    # Render/Vercel: allow Authorization header without cookies.
+    # If you want to lock this down, set CORS_ORIGINS to a comma-separated list.
+    allow_origins=[o.strip() for o in (os.getenv("CORS_ORIGINS") or "*").split(",") if o.strip()],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
