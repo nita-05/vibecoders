@@ -18,20 +18,24 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# ✅ FIXED CORS CONFIGURATION
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://vb-b6o9.vercel.app",  # 🔥 your frontend URL
+]
 
 app.add_middleware(
     CORSMiddleware,
-    # Render/Vercel: allow Authorization header without cookies.
-    # If you want to lock this down, set CORS_ORIGINS to a comma-separated list.
-    allow_origins=[o.strip() for o in (os.getenv("CORS_ORIGINS") or "*").split(",") if o.strip()],
-    allow_credentials=False,
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Routers
 app.include_router(auth_router)
 app.include_router(projects_router)
-
 
 MONGODB_URI = os.getenv("DATABASE_URL")
 
@@ -59,7 +63,7 @@ async def db_health() -> dict:
     try:
         await mongo_client.admin.command("ping")
         return {"ok": True}
-    except Exception as exc:  # pragma: no cover - diagnostics only
+    except Exception as exc:
         return {"ok": False, "error": str(exc)}
 
 
@@ -69,7 +73,7 @@ async def generate_script_endpoint(payload: GenerateScriptRequest) -> GenerateSc
         script = await generate_roblox_script(payload)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover - safety net
+    except Exception as exc:
         raise HTTPException(
             status_code=502,
             detail=f"Upstream AI provider error: {exc!r}",
@@ -82,4 +86,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
-
