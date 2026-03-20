@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roblox Lua Stream Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; max-width: 900px; }
+    input, button, textarea { font-size: 14px; }
+    input { width: 100%; padding: 10px; margin-bottom: 10px; }
+    button { padding: 10px 16px; cursor: pointer; margin-right: 8px; }
+    textarea { width: 100%; height: 420px; margin-top: 12px; padding: 12px; white-space: pre-wrap; }
+    .row { margin: 8px 0; }
+    .muted { color: #555; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h2>Streaming Roblox Lua Generator</h2>
+  <div class="row muted">This page listens to <code>/generate?prompt=...</code> via SSE.</div>
+  <input id="prompt" placeholder="Enter prompt, e.g. create a simple coin pickup system in Roblox" />
+  <div class="row">
+    <button id="start">Start Streaming</button>
+    <button id="stop">Stop</button>
+  </div>
+  <textarea id="output" placeholder="Streamed output appears here..." readonly></textarea>
+
+  <script>
+    const API_BASE = "http://localhost:8000";
+    const promptInput = document.getElementById("prompt");
+    const output = document.getElementById("output");
+    const startBtn = document.getElementById("start");
+    const stopBtn = document.getElementById("stop");
+    let source = null;
+
+    function stopStream() {
+      if (source) {
+        source.close();
+        source = null;
+      }
+    }
+
+    startBtn.addEventListener("click", () => {
+      const prompt = (promptInput.value || "").trim();
+      if (!prompt) {
+        alert("Please enter a prompt.");
+        return;
+      }
+
+      stopStream();
+      output.value = "";
+
+      const url = `${API_BASE}/generate?prompt=${encodeURIComponent(prompt)}`;
+      source = new EventSource(url);
+
+      source.onmessage = (event) => {
+        const data = event.data || "";
+        if (data === "[DONE]") {
+          stopStream();
+          return;
+        }
+        if (data.startsWith("[ERROR]")) {
+          output.value += `\n${data}\n`;
+          stopStream();
+          return;
+        }
+        output.value += data.replace(/\\n/g, "\n").replace(/\\r/g, "\r");
+        output.scrollTop = output.scrollHeight;
+      };
+
+      source.onerror = () => {
+        output.value += "\n[ERROR] Stream disconnected.\n";
+        stopStream();
+      };
+    });
+
+    stopBtn.addEventListener("click", stopStream);
+  </script>
+</body>
+</html>
