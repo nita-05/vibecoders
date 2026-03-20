@@ -35,6 +35,12 @@
         min-height: 100vh;
         transition: margin-left 0.18s ease;
       }
+      /* When landing -> auth, hide the builder UI but keep the auth modal visible. */
+      #layout-root.builder-locked aside { display: none; }
+      #layout-root.builder-locked header { display: none; }
+      #layout-root.builder-locked .project-form { display: none !important; }
+      #layout-root.builder-locked .columns { display: none; }
+      #layout-root.builder-locked .footer { display: none; }
       .sidebar {
         width: 220px;
         padding: 0.9rem 0.8rem;
@@ -272,6 +278,73 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
+      }
+      /* Profile dropdown (logo click) */
+      .profile-toggle-anchor {
+        position: relative;
+        display: inline-block;
+        vertical-align: top;
+        flex: 0 0 auto; /* prevent flex stretch */
+        width: auto;
+      }
+      .logo[role="button"] {
+        cursor: pointer;
+      }
+      .profile-dropdown-mount {
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        left: 0 !important;
+        right: auto;
+        transform: none !important;
+        z-index: 80;
+        pointer-events: auto;
+        width: fit-content;
+        display: inline-block;
+      }
+      .profile-dropdown-card {
+        padding: 12px 16px;
+        border-radius: 10px;
+        background: rgba(30, 41, 59, 0.94);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(10px);
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start !important;
+        text-align: left !important;
+        width: fit-content !important; /* avoid any full-width sidebar styles */
+      }
+      .profile-dropdown-brand .logo-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        box-shadow:
+          0 0 18px rgba(129, 140, 248, 0.75),
+          0 0 34px rgba(56, 189, 248, 0.45);
+      }
+      .profile-dropdown-brand .logo-icon::after {
+        inset: 3px;
+        border-radius: 9px;
+      }
+      .profile-dropdown-email {
+        margin-top: 10px;
+        color: #e5e7eb;
+        font-size: 0.92rem;
+        font-weight: 650;
+        word-break: break-word;
+        text-align: left !important;
+        align-self: flex-start;
+      }
+      .profile-dropdown-logout {
+        margin-top: 10px;
+        width: auto;
+        align-self: flex-start;
+        text-align: left !important;
+      }
+      .profile-dropdown-logout.sidebar-logout-btn {
+        background: rgba(15, 23, 42, 0.98);
+        width: auto !important; /* override sidebar full-width */
+        justify-content: flex-start !important; /* keep left aligned */
       }
       .sidebar-toggle-btn {
         border-radius: 999px;
@@ -776,10 +849,675 @@
         gap: 0.4rem;
         margin-top: 0.4rem;
       }
+
+      /* Static landing page (matches frontend-next marketing page) */
+      #landing-root {
+        display: block;
+        padding: 52px 16px 44px;
+      }
+
+      .landing-shell {
+        margin: 0 auto;
+        max-width: 1120px;
+      }
+
+      .landing-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-bottom: 36px;
+      }
+
+      .landing-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .landing-brand .landing-brand-main {
+        font-weight: 900;
+        letter-spacing: 0.01em;
+        font-size: 18px;
+      }
+
+      .landing-brand .landing-brand-sub {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: #94a3b8;
+        margin-top: 2px;
+      }
+
+      .landing-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .landing-nav-link {
+        color: #e5e7eb;
+        text-decoration: none;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.35);
+      }
+
+      .landing-nav-link:hover {
+        border-color: rgba(129, 140, 248, 0.85);
+        background: rgba(15, 23, 42, 0.7);
+      }
+
+      .landing-cta-link {
+        color: #a5f3fc;
+        text-decoration: none;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(34, 211, 238, 0.4);
+        background: rgba(34, 211, 238, 0.12);
+      }
+
+      .landing-cta-link:hover {
+        background: rgba(34, 211, 238, 0.18);
+      }
+
+      .landing-hero {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      @media (min-width: 980px) {
+        .landing-hero { grid-template-columns: 1.15fr 0.85fr; gap: 26px; }
+      }
+
+      .landing-pill-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+
+      .landing-pill {
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        border: 1px solid rgba(34, 211, 238, 0.25);
+        background: rgba(34, 211, 238, 0.08);
+        color: #a5f3fc;
+        padding: 8px 12px;
+        border-radius: 999px;
+      }
+
+      .landing-pill.alt {
+        border-color: rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.28);
+        color: #e5e7eb;
+      }
+
+      .landing-pill.indigo {
+        border-color: rgba(129, 140, 248, 0.35);
+        background: rgba(129, 140, 248, 0.12);
+        color: #c7d2fe;
+      }
+
+      .landing-hero h1 {
+        font-size: 44px;
+        line-height: 1.06;
+        margin: 0;
+        font-weight: 1000;
+        letter-spacing: -0.02em;
+      }
+
+      @media (max-width: 520px) {
+        .landing-hero h1 { font-size: 34px; }
+      }
+
+      .landing-hero p {
+        color: #cbd5e1;
+        font-size: 16px;
+        line-height: 1.65;
+        margin: 16px 0 0;
+      }
+
+      .landing-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+
+      .landing-btn {
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-weight: 900;
+      }
+
+      .landing-features-mini {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1fr;
+        margin-top: 18px;
+      }
+
+      @media (min-width: 700px) {
+        .landing-features-mini { grid-template-columns: repeat(3, 1fr); }
+      }
+
+      .landing-mini-card {
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(30, 41, 59, 0.35);
+        padding: 14px 14px;
+      }
+
+      .landing-mini-card .t {
+        font-weight: 1000;
+        font-size: 14px;
+      }
+
+      .landing-mini-card .d {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #cbd5e1;
+        line-height: 1.5;
+        font-weight: 700;
+      }
+
+      .landing-section {
+        margin-top: 44px;
+      }
+
+      .landing-section h2 {
+        font-size: 22px;
+        font-weight: 1000;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+
+      .landing-grid-3 {
+        margin-top: 18px;
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1fr;
+      }
+
+      @media (min-width: 900px) {
+        .landing-grid-3 { grid-template-columns: repeat(3, 1fr); }
+      }
+
+      .landing-card {
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(15, 23, 42, 0.35);
+        padding: 16px 16px;
+      }
+
+      .landing-card .title {
+        font-weight: 1000;
+        font-size: 14px;
+      }
+
+      .landing-card .desc {
+        margin-top: 8px;
+        color: #cbd5e1;
+        font-size: 12px;
+        line-height: 1.6;
+        font-weight: 750;
+      }
+
+      .landing-prompt-grid {
+        margin-top: 18px;
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1fr;
+      }
+
+      @media (min-width: 900px) {
+        .landing-prompt-grid { grid-template-columns: repeat(2, 1fr); }
+      }
+
+      .landing-pre {
+        margin-top: 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: #0f172a;
+        padding: 12px 12px;
+        overflow: auto;
+        max-height: 240px;
+      }
+
+      .landing-pre pre {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #e5e7eb;
+        white-space: pre-wrap;
+      }
+
+      details.landing-faq {
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(15, 23, 42, 0.35);
+        padding: 16px 16px;
+      }
+
+      details.landing-faq > summary {
+        list-style: none;
+        cursor: pointer;
+      }
+
+      details.landing-faq summary::-webkit-details-marker { display: none; }
+
+      .landing-faq-q {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 1000;
+      }
+
+      .landing-faq-plus {
+        height: 32px;
+        width: 32px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.35);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 1000;
+        color: #e5e7eb;
+      }
+
+      .landing-faq-a {
+        margin-top: 12px;
+        color: #cbd5e1;
+        font-size: 13px;
+        line-height: 1.65;
+        font-weight: 750;
+      }
+
+      .landing-bottom-cta {
+        margin-top: 44px;
+        border-radius: 18px;
+        border: 1px solid rgba(34, 211, 238, 0.25);
+        background: rgba(34, 211, 238, 0.06);
+        padding: 18px 18px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .landing-bottom-cta h2 { font-size: 26px; }
+
+      .landing-bottom-cta p {
+        margin: 8px 0 0;
+        color: #cbd5e1;
+        font-weight: 750;
+        line-height: 1.6;
+      }
+
+      /* Auth modal */
+      #auth-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.72);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+      }
+
+      #auth-card {
+        width: min(520px, 100%);
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.18), transparent 55%),
+          rgba(15, 23, 42, 0.98);
+        box-shadow: 0 24px 80px rgba(2, 6, 23, 0.75);
+        padding: 16px 16px;
+      }
+
+      .auth-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .auth-title {
+        font-weight: 1000;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+      }
+
+      .auth-sub {
+        margin-top: 6px;
+        font-size: 13px;
+        color: #cbd5e1;
+        line-height: 1.55;
+        font-weight: 700;
+      }
+
+      .auth-close {
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.5);
+        color: #e5e7eb;
+        cursor: pointer;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 1000;
+      }
+
+      .auth-grid {
+        margin-top: 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .auth-field label {
+        display: block;
+        font-size: 12px;
+        font-weight: 1000;
+        color: #94a3b8;
+        margin-bottom: 6px;
+      }
+
+      .auth-field input {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.8);
+        color: #e5e7eb;
+        padding: 12px 12px;
+        outline: none;
+        font-weight: 750;
+      }
+
+      .auth-error {
+        display: none;
+        border-radius: 12px;
+        border: 1px solid rgba(248, 113, 113, 0.35);
+        background: rgba(248, 113, 113, 0.10);
+        padding: 10px 12px;
+        color: #fecaca;
+        font-weight: 800;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .auth-actions {
+        margin-top: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      #auth-demo-btn {
+        width: 100%;
+        margin-top: 2px;
+      }
+
+      #auth-busy {
+        display: none;
+        margin-top: 10px;
+        color: #cbd5e1;
+        font-weight: 900;
+        font-size: 13px;
+      }
     </style>
   </head>
   <body>
-    <div class="layout" id="layout-root">
+    <div id="landing-root">
+      <div class="landing-shell">
+        <header class="landing-header">
+          <div class="landing-brand">
+            <span class="logo-icon"></span>
+            <div>
+              <div class="landing-brand-main">VibeCoder</div>
+              <div class="landing-brand-sub">Roblox AI Builder</div>
+            </div>
+          </div>
+
+          <nav class="landing-nav" aria-label="Primary navigation">
+            <a class="landing-nav-link" href="/docs">Docs</a>
+            <a class="landing-nav-link" href="/pricing">Pricing</a>
+            <button type="button" id="landing-sign-in" class="landing-cta-link" style="cursor:pointer;">
+              Sign in
+            </button>
+          </nav>
+        </header>
+
+        <main>
+          <section class="landing-hero" aria-label="Hero">
+            <div>
+              <div class="landing-pill-row">
+                <span class="landing-pill">Describe → Roblox Lua</span>
+                <span class="landing-pill alt">Studio-ready output</span>
+                <span class="landing-pill indigo">Optional images</span>
+              </div>
+
+              <h1>VibeCoder turns ideas into minimal, paste-ready scripts.</h1>
+              <p>
+                Write a prompt (and optionally attach up to 2 images) and get clean Roblox Lua with placement headers.
+                Great for fast iteration in Roblox Studio.
+              </p>
+
+              <div class="landing-actions">
+                <button type="button" id="landing-open-builder" class="btn-cyan landing-btn">Open the builder</button>
+                <a href="/docs" class="btn-grey landing-btn" style="display:inline-flex; align-items:center;">See how it works</a>
+              </div>
+
+              <div class="landing-features-mini" aria-label="Quick highlights">
+                <div class="landing-mini-card">
+                  <div class="t">Placement headers</div>
+                  <div class="d">Use <code class="rounded bg-slate-900/60 px-1 py-0.5">-- Script: ...</code> blocks for clean install.</div>
+                </div>
+                <div class="landing-mini-card">
+                  <div class="t">Minimal code</div>
+                  <div class="d">Short, complete scripts (no fluff).</div>
+                </div>
+                <div class="landing-mini-card">
+                  <div class="t">Refine loop</div>
+                  <div class="d">Ask for improvements or regenerate based on feedback.</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="landing-card" style="padding:16px;">
+                <div class="title" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                  <span>Example output</span>
+                  <span class="template-pill" style="font-size:10px; padding:4px 10px;">Copy into Studio</span>
+                </div>
+                <div class="landing-pre">
+                  <pre><code class="language-lua">-- Script: ServerScriptService/GameManager
+local Players = game:GetService("Players")
+
+-- Minimal example: award +1 on touch, then respawn
+local function givePoint(player)
+  local leaderstats = player:FindFirstChild("leaderstats")
+  local points = leaderstats and leaderstats:FindFirstChild("Points")
+  if points then points.Value += 1 end
+end
+
+-- Paste generator output as-is, then iterate.</code></pre>
+                </div>
+                <div class="desc" style="margin-top:10px;">
+                  Tip: if you need multiple scripts, output each one with a header like <code>-- Script: ServerScriptService/YourModule</code>.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="landing-section" aria-labelledby="features-title">
+            <h2 id="features-title">Everything you need to prototype fast</h2>
+            <div class="landing-grid-3">
+              <div class="landing-card">
+                <div class="title">Studio-ready placement</div>
+                <div class="desc">Outputs include clear placement headers, so scripts can be pasted into the right Roblox services.</div>
+              </div>
+              <div class="landing-card">
+                <div class="title">Templates + guided recipes</div>
+                <div class="desc">Start from proven mechanics and tweak from there.</div>
+              </div>
+              <div class="landing-card">
+                <div class="title">Projects + recent history</div>
+                <div class="desc">Keep generations organized per project so you can iterate quickly.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="landing-section" aria-labelledby="how-title">
+            <h2 id="how-title">How it works</h2>
+            <div class="landing-grid-3">
+              <div class="landing-card">
+                <div class="title" style="display:flex; align-items:center; gap:10px;">
+                  <span class="landing-faq-plus" style="height:36px; width:36px; border-radius:14px;">1</span>
+                  Describe your mechanic
+                </div>
+                <div class="desc">Tell the model what you want to happen (and where), optionally with images.</div>
+              </div>
+              <div class="landing-card">
+                <div class="title" style="display:flex; align-items:center; gap:10px;">
+                  <span class="landing-faq-plus" style="height:36px; width:36px; border-radius:14px;">2</span>
+                  Generate minimal Lua
+                </div>
+                <div class="desc">Get short, complete scripts with placement headers so you can install quickly.</div>
+              </div>
+              <div class="landing-card">
+                <div class="title" style="display:flex; align-items:center; gap:10px;">
+                  <span class="landing-faq-plus" style="height:36px; width:36px; border-radius:14px;">3</span>
+                  Copy, paste, and refine
+                </div>
+                <div class="desc">Iterate in minutes: ask for improvements or regenerate based on feedback.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="landing-section" aria-labelledby="examples-title">
+            <h2 id="examples-title">Try a starter prompt</h2>
+            <div class="landing-prompt-grid">
+              <div class="landing-card">
+                <div class="title" style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                  <span>Coin collector MVP</span>
+                  <span class="template-pill" style="font-size:10px; padding:4px 10px;">templates + recipes</span>
+                </div>
+                <div class="landing-pre">
+                  <pre><code>Build a small complete Roblox coin-collector game (MVP) using Roblox Lua.
+
+Requirements:
+- Use leaderstats named Points (default 0).
+- Spawn 15 coins around Workspace at random positions.
+- Touch coin -> disappear +1 Point, respawn after 5 seconds.
+- Add a 60-second timer and show a simple ScreenGui at the end.</code></pre>
+                </div>
+              </div>
+
+              <div class="landing-card">
+                <div class="title" style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                  <span>Escape from zombies</span>
+                  <span class="template-pill" style="font-size:10px; padding:4px 10px;">full game</span>
+                </div>
+                <div class="landing-pre">
+                  <pre><code>Build a small complete Roblox "escape from zombies" game (MVP) using Roblox Lua.
+
+Requirements:
+- Workspace contains a Folder named Zombies with 5 NPC zombie models.
+- Zombies chase the nearest player (PathfindingService).
+- Zombie touch deals 15 damage with a short cooldown.
+- Add a 90-second survival timer and show simple win/lose UI.</code></pre>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="landing-section" aria-labelledby="faq-title">
+            <h2 id="faq-title">FAQ</h2>
+            <div class="landing-grid-3" style="grid-template-columns:1fr; margin-top: 14px;">
+              <details class="landing-faq">
+                <summary>
+                  <div class="landing-faq-q">
+                    <span>Does it generate multiple scripts?</span>
+                    <span class="landing-faq-plus">+</span>
+                  </div>
+                </summary>
+                <div class="landing-faq-a">
+                  Yes. If you ask for multiple systems, include placement headers like <code>-- Script: ServerScriptService/GameManager</code>.
+                </div>
+              </details>
+
+              <details class="landing-faq" style="margin-top: 12px;">
+                <summary>
+                  <div class="landing-faq-q">
+                    <span>Is the code safe to paste into Studio?</span>
+                    <span class="landing-faq-plus">+</span>
+                  </div>
+                </summary>
+                <div class="landing-faq-a">
+                  The generator focuses on minimal, complete scripts. There’s also a light “review first” signal if outputs look risky,
+                  but you should still review anything that gets placed into your game.
+                </div>
+              </details>
+
+              <details class="landing-faq" style="margin-top: 12px;">
+                <summary>
+                  <div class="landing-faq-q">
+                    <span>Do I need images?</span>
+                    <span class="landing-faq-plus">+</span>
+                  </div>
+                </summary>
+                <div class="landing-faq-a">
+                  No. Text-only prompts work great. Images are optional and can help steer the model (up to 2 images).
+                </div>
+              </details>
+
+              <details class="landing-faq" style="margin-top: 12px;">
+                <summary>
+                  <div class="landing-faq-q">
+                    <span>Where do I start?</span>
+                    <span class="landing-faq-plus">+</span>
+                  </div>
+                </summary>
+                <div class="landing-faq-a">
+                  Open the builder, paste a starter prompt, and iterate: refine the prompt after you test in Studio.
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <section class="landing-bottom-cta" aria-label="Final call to action">
+            <div>
+              <h2>Ready to prototype?</h2>
+              <p>Generate a Roblox Lua script in seconds, then refine until it feels right.</p>
+            </div>
+            <div class="landing-actions" style="margin-top: 0;">
+              <button type="button" id="landing-open-builder-2" class="btn-cyan landing-btn">Open the builder</button>
+              <a href="/docs" class="btn-grey landing-btn" style="display:inline-flex; align-items:center;">Read docs</a>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="layout" id="layout-root" style="display:none;">
       <aside class="sidebar">
         <div class="sidebar-header">
           <span class="logo-icon"></span>
@@ -810,13 +1548,16 @@
       <header class="header">
         <div class="header-left">
           <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Toggle sidebar">≡</button>
-          <div class="logo">
-          <span class="logo-icon"></span>
-          <div>
-            <span class="logo-text-main">VibeCoder</span>
-            <span class="logo-text-sub">Roblox AI Builder</span>
+          <div class="profile-toggle-anchor">
+            <div class="logo" id="header-logo" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false">
+              <span class="logo-icon"></span>
+              <div>
+                <span class="logo-text-main">VibeCoder</span>
+                <span class="logo-text-sub">Roblox AI Builder</span>
+              </div>
+            </div>
+            <div id="profile-dropdown-mount" class="profile-dropdown-mount" style="display:none;" aria-hidden="true"></div>
           </div>
-        </div>
         </div>
         <div class="header-center">
           <span style="opacity:0.9;">Describe → Roblox Lua (MVP)</span>
@@ -851,6 +1592,9 @@
           <input id="pf-email-input" type="email" placeholder="you@example.com" />
         </div>
         <div class="pf-row">
+          <button type="button" class="sidebar-logout-btn" id="pf-logout-btn">Logout</button>
+        </div>
+        <div class="pf-row">
           <label for="pf-name-main">Name</label>
           <input id="pf-name-main" type="text" />
         </div>
@@ -863,6 +1607,49 @@
           <button type="button" class="btn-cyan" id="pf-save">Save</button>
         </div>
         <div class="form-help" id="pf-status"></div>
+      </div>
+
+      <div id="auth-modal" aria-hidden="true">
+        <div id="auth-card" role="dialog" aria-modal="true" aria-label="Sign in">
+          <div class="auth-head">
+            <div>
+              <div class="auth-title">Sign in</div>
+              <div class="auth-sub">
+                Save projects to your account and edit your profile. You can also continue in demo mode.
+              </div>
+            </div>
+            <button type="button" class="auth-close" id="auth-close-btn" aria-label="Close sign-in modal">
+              ×
+            </button>
+          </div>
+
+          <div class="auth-grid">
+            <div class="auth-error" id="auth-error"></div>
+
+            <div class="auth-field">
+              <label for="auth-email">Email</label>
+              <input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email" />
+            </div>
+
+            <div class="auth-field">
+              <label for="auth-password">Password</label>
+              <input id="auth-password" type="password" placeholder="At least 6 characters" autocomplete="current-password" />
+            </div>
+          </div>
+
+          <div class="auth-actions">
+            <button type="button" id="auth-login-btn" class="btn-cyan" style="font-size: 14px; padding: 10px 14px;">
+              Log in
+            </button>
+            <button type="button" id="auth-signup-btn" class="btn-grey" style="font-size: 14px; padding: 10px 14px;">
+              Create account
+            </button>
+            <div id="auth-busy">Working…</div>
+            <button type="button" id="auth-demo-btn" class="btn-grey" style="font-size: 14px; padding: 10px 14px;">
+              Continue as demo
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="columns">
@@ -968,6 +1755,58 @@
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-lua.min.js"></script>
     <script>
+      // Tracks whether we should unlock the builder UI after auth completes.
+      let pendingBuilderOpen = false;
+
+      // Show landing page first (static) and switch to the builder UI on demand.
+      (function initLanding() {
+        const landingRootEl = document.getElementById("landing-root");
+        const builderLayoutEl = document.getElementById("layout-root");
+        if (!landingRootEl || !builderLayoutEl) return;
+
+        // Optional: allow forcing builder via ?builder=1
+        const sp = new URLSearchParams(window.location.search);
+        const forceBuilder = sp.get("builder") === "1";
+
+        if (forceBuilder) {
+          landingRootEl.style.display = "none";
+          if (!getToken()) {
+            // If someone loads the builder entry-point without auth, require sign-in.
+            pendingBuilderOpen = true;
+            showAuthModal();
+            builderLayoutEl.style.display = "none";
+          } else {
+            builderLayoutEl.style.display = "flex";
+            builderLayoutEl.classList.remove("builder-locked");
+          }
+          return;
+        }
+
+        builderLayoutEl.style.display = "none";
+        landingRootEl.style.display = "block";
+
+        // "Open the builder" should require auth (unless already signed in).
+        const openBuilder = () => {
+          landingRootEl.style.display = "none";
+
+          if (!getToken()) {
+            // Lock the builder UI and show the sign-in modal.
+            pendingBuilderOpen = true;
+            showAuthModal();
+            builderLayoutEl.style.display = "none";
+            return;
+          }
+
+          builderLayoutEl.style.display = "flex";
+          pendingBuilderOpen = false;
+          builderLayoutEl.classList.remove("builder-locked");
+          document.getElementById("prompt")?.focus?.();
+        };
+
+        document.getElementById("landing-open-builder")?.addEventListener("click", openBuilder);
+        document.getElementById("landing-open-builder-2")?.addEventListener("click", openBuilder);
+      })();
+
       const form = document.getElementById("prompt-form");
       const promptInput = document.getElementById("prompt");
       const imageInput = document.getElementById("image");
@@ -1000,14 +1839,29 @@
       const sbHistoryList = document.getElementById("sb-history-list");
       const sidebarToggleBtn = document.getElementById("sidebar-toggle");
       const layoutRoot = document.getElementById("layout-root");
+      const headerLogoEl = document.getElementById("header-logo");
       const sbProfile = document.getElementById("sb-profile");
       const profilePanel = document.getElementById("profile-panel");
+      const profileDropdownMountEl = document.getElementById("profile-dropdown-mount");
       const pfEmailInput = document.getElementById("pf-email-input");
       const pfNameMain = document.getElementById("pf-name-main");
       const pfBio = document.getElementById("pf-bio");
       const pfCloseBtn = document.getElementById("pf-close");
+      const pfLogoutBtn = document.getElementById("pf-logout-btn");
       const pfSaveBtn = document.getElementById("pf-save");
       const pfStatus = document.getElementById("pf-status");
+
+      // Auth UI elements (real login/sign-up)
+      const authModal = document.getElementById("auth-modal");
+      const authErrorEl = document.getElementById("auth-error");
+      const authBusyEl = document.getElementById("auth-busy");
+      const authEmailInput = document.getElementById("auth-email");
+      const authPasswordInput = document.getElementById("auth-password");
+      const authCloseBtn = document.getElementById("auth-close-btn");
+      const authLoginBtn = document.getElementById("auth-login-btn");
+      const authSignupBtn = document.getElementById("auth-signup-btn");
+      const authDemoBtn = document.getElementById("auth-demo-btn");
+
       const API_BASE =
         window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
           ? "https://vb-fgl8.onrender.com"
@@ -1018,12 +1872,177 @@
       let CURRENT_PROJECT_ID = null;
       let CURRENT_USER_EMAIL = null;
 
+      // Header profile dropdown toggle state.
+      let showProfile = false;
+      let profileDropdownEmailEl = null;
+
+      function ProfileDropdown({ email, onLogout }) {
+        const root = document.createElement("div");
+        root.className = "profile-dropdown-card";
+        root.setAttribute("role", "dialog");
+        root.setAttribute("aria-label", "Profile");
+
+        const brand = document.createElement("div");
+        brand.className = "profile-dropdown-brand";
+        brand.innerHTML = '<span class="logo-icon"></span>';
+
+        const emailEl = document.createElement("div");
+        emailEl.className = "profile-dropdown-email";
+        emailEl.setAttribute("data-profile-email", "true");
+        emailEl.textContent = (email || "").trim() ? String(email) : "Not signed in";
+
+        const logoutBtn = document.createElement("button");
+        logoutBtn.type = "button";
+        logoutBtn.className = "sidebar-logout-btn profile-dropdown-logout";
+        logoutBtn.textContent = "Logout";
+        logoutBtn.addEventListener("click", onLogout);
+
+        root.appendChild(brand);
+        root.appendChild(emailEl);
+        root.appendChild(logoutBtn);
+        return root;
+      }
+
+      function syncProfileDropdownEmail() {
+        if (!profileDropdownEmailEl) return;
+        profileDropdownEmailEl.textContent = (CURRENT_USER_EMAIL || "").trim() ? CURRENT_USER_EMAIL : "Not signed in";
+      }
+
+      function updateDropdownPosition() {
+        if (!headerLogoEl || !profileDropdownMountEl) return;
+        const rect = headerLogoEl.getBoundingClientRect();
+        // Use viewport positioning to avoid any flex/grid centering effects.
+        profileDropdownMountEl.style.position = "fixed";
+        profileDropdownMountEl.style.top = `${rect.bottom + 8}px`;
+        profileDropdownMountEl.style.left = `${rect.left}px`;
+        profileDropdownMountEl.style.right = "auto";
+        profileDropdownMountEl.style.transform = "none";
+      }
+
+      function setShowProfile(next) {
+        showProfile = !!next;
+        if (!profileDropdownMountEl) return;
+
+        if (!showProfile) {
+          profileDropdownMountEl.style.display = "none";
+          profileDropdownMountEl.setAttribute("aria-hidden", "true");
+          profileDropdownEmailEl = null;
+          profileDropdownMountEl.innerHTML = "";
+          // Revert to CSS positioning when hidden.
+          profileDropdownMountEl.style.position = "";
+          profileDropdownMountEl.style.top = "";
+          profileDropdownMountEl.style.left = "";
+          profileDropdownMountEl.style.right = "";
+          profileDropdownMountEl.style.transform = "";
+          if (headerLogoEl) headerLogoEl.setAttribute("aria-expanded", "false");
+          return;
+        }
+
+        // The header dropdown is a compact menu; hide the full editor panel.
+        if (profilePanel) profilePanel.style.display = "none";
+
+        // Render with latest email each time we open.
+        profileDropdownMountEl.style.display = "block";
+        profileDropdownMountEl.setAttribute("aria-hidden", "false");
+        if (headerLogoEl) headerLogoEl.setAttribute("aria-expanded", "true");
+
+        updateDropdownPosition();
+
+        profileDropdownMountEl.innerHTML = "";
+        const dropdownEl = ProfileDropdown({ email: CURRENT_USER_EMAIL, onLogout: handleLogout });
+        profileDropdownEmailEl = dropdownEl.querySelector("[data-profile-email]");
+        profileDropdownMountEl.appendChild(dropdownEl);
+      }
+
       function getToken() {
         try { return localStorage.getItem(AUTH_KEY) || ""; } catch { return ""; }
       }
       function clearToken() {
         try { localStorage.removeItem(AUTH_KEY); } catch {}
       }
+
+      function setAuthError(msg) {
+        if (!authErrorEl) return;
+        const text = msg ? String(msg) : "";
+        authErrorEl.textContent = text;
+        authErrorEl.style.display = text ? "block" : "none";
+      }
+
+      function showAuthModal() {
+        if (!authModal) return;
+        authModal.style.display = "flex";
+        authModal.setAttribute("aria-hidden", "false");
+        setAuthError("");
+      }
+
+      function hideAuthModal() {
+        if (!authModal) return;
+        authModal.style.display = "none";
+        authModal.setAttribute("aria-hidden", "true");
+        setAuthError("");
+      }
+
+      function setAuthBusy(busy) {
+        if (authBusyEl) authBusyEl.style.display = busy ? "block" : "none";
+        if (authLoginBtn) authLoginBtn.disabled = !!busy;
+        if (authSignupBtn) authSignupBtn.disabled = !!busy;
+        if (authCloseBtn) authCloseBtn.disabled = !!busy;
+        if (authDemoBtn) authDemoBtn.disabled = !!busy;
+      }
+
+      async function authRequest(endpoint, email, password) {
+        const url = API_BASE + endpoint;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "Authentication failed");
+        if (!data.access_token) throw new Error("No access token returned.");
+        return data;
+      }
+
+      async function doLoginOrSignup(mode) {
+        if (!authEmailInput || !authPasswordInput) return;
+
+        const email = String(authEmailInput.value || "").trim();
+        const password = String(authPasswordInput.value || "").trim();
+        if (!email) return setAuthError("Enter your email.");
+        if (!password) return setAuthError("Enter your password.");
+
+        setAuthBusy(true);
+        try {
+          const endpoint = mode === "signup" ? "/auth/signup" : "/auth/login";
+          const data = await authRequest(endpoint, email, password);
+
+          // Save JWT so all API requests use Authorization: Bearer <token>.
+          try { localStorage.setItem(AUTH_KEY, data.access_token); } catch {}
+          hideAuthModal();
+
+          if (pendingBuilderOpen) {
+            pendingBuilderOpen = false;
+            const layoutEl = document.getElementById("layout-root");
+            if (layoutEl) {
+              layoutEl.classList.remove("builder-locked");
+              layoutEl.style.display = "flex";
+            }
+            // Keep focus on the builder prompt once auth completes.
+            document.getElementById("prompt")?.focus?.();
+          }
+
+          // Refresh app state to use backend projects and user profile.
+          CURRENT_PROJECT_ID = null;
+          CURRENT_USER_EMAIL = null;
+          fetchCurrentUser();
+          fetchProjects();
+        } catch (e) {
+          setAuthError(e instanceof Error ? e.message : "Authentication failed.");
+        } finally {
+          setAuthBusy(false);
+        }
+      }
+
       function getHistoryKey() {
         const suffix = CURRENT_USER_EMAIL ? `:${CURRENT_USER_EMAIL}` : ":anon";
         return HISTORY_KEY_BASE + suffix;
@@ -1052,6 +2071,7 @@
           if (pfNameMain) pfNameMain.value = p.name || "";
           if (pfBio) pfBio.value = p.bio || "";
           CURRENT_USER_EMAIL = (p.email || "").toLowerCase() || null;
+          syncProfileDropdownEmail();
           renderHistory();
           return;
         }
@@ -1063,6 +2083,7 @@
             if (pfEmailInput) pfEmailInput.value = data.email || "";
             if (pfNameMain) pfNameMain.value = data.name || "";
             if (pfBio) pfBio.value = data.bio || "";
+            syncProfileDropdownEmail();
             renderHistory();
           }
         } catch {
@@ -1072,10 +2093,69 @@
 
       fetchCurrentUser();
 
+      // If user already opened the builder, prompt to sign in (unless they're already signed in).
+      if (layoutRoot && layoutRoot.style.display !== "none" && !getToken()) showAuthModal();
+
+      // Landing CTA: replace "Open app" with real sign-in.
+      document.getElementById("landing-sign-in")?.addEventListener("click", () => {
+        // Always show the real sign-in process for this entry point.
+        pendingBuilderOpen = true;
+        const landingEl = document.getElementById("landing-root");
+        const layoutEl = document.getElementById("layout-root");
+        if (landingEl) landingEl.style.display = "none";
+        if (layoutEl) {
+          layoutEl.style.display = "none";
+          layoutEl.classList.remove("builder-locked");
+        }
+        showAuthModal();
+      });
+
       if (sidebarToggleBtn && layoutRoot) {
         sidebarToggleBtn.addEventListener("click", () => {
           layoutRoot.classList.toggle("sidebar-collapsed");
         });
+      }
+
+      // Logo click toggles the profile dropdown/modal.
+      headerLogoEl?.addEventListener("click", (e) => {
+        e.preventDefault?.();
+        setShowProfile(!showProfile);
+      });
+      headerLogoEl?.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        setShowProfile(!showProfile);
+      });
+
+      // Close dropdown when clicking outside.
+      document.addEventListener("mousedown", (e) => {
+        if (!showProfile) return;
+        if (!profileDropdownMountEl) return;
+        const target = e.target;
+        if (profileDropdownMountEl.contains(target)) return;
+        if (headerLogoEl && headerLogoEl.contains(target)) return;
+        if (sbProfile && sbProfile.contains(target)) return;
+        setShowProfile(false);
+      });
+
+      // Keep dropdown aligned under the logo when the layout shifts.
+      window.addEventListener("resize", () => {
+        if (!showProfile) return;
+        updateDropdownPosition();
+      });
+      window.addEventListener("scroll", () => {
+        if (!showProfile) return;
+        updateDropdownPosition();
+      }, true);
+
+      function handleLogout() {
+        clearToken();
+        CURRENT_USER_EMAIL = null;
+        pendingBuilderOpen = false;
+        // Close the dropdown immediately; redirect is what "lands" the user.
+        setShowProfile(false);
+        closeProfile?.();
+        window.location.href = "/";
       }
 
       // Logout removed from UI in demo mode
@@ -1159,6 +2239,16 @@
           const created = await res.json().catch(() => null);
           if (created && created.id) list = [created];
         }
+
+        // Pick an active project id that actually exists in the backend list.
+        // This prevents stale demo project ids from leaving the UI in a mismatched state.
+        if (!list.length) CURRENT_PROJECT_ID = "default";
+        else {
+          const activeId =
+            CURRENT_PROJECT_ID && list.some((p) => p.id === CURRENT_PROJECT_ID) ? CURRENT_PROJECT_ID : list[0].id;
+          CURRENT_PROJECT_ID = activeId;
+        }
+
         if (projectSelect) {
           projectSelect.innerHTML = "";
           list.forEach((p) => {
@@ -1185,10 +2275,41 @@
             });
           });
         }
-        if (list[0] && !CURRENT_PROJECT_ID) CURRENT_PROJECT_ID = list[0].id;
+
+        if (projectSelect) projectSelect.value = CURRENT_PROJECT_ID;
       }
 
       fetchProjects();
+
+      // Auth modal wiring
+      if (authCloseBtn)
+        authCloseBtn.addEventListener("click", () => {
+          if (pendingBuilderOpen) {
+            pendingBuilderOpen = false;
+            hideAuthModal();
+            const landingEl = document.getElementById("landing-root");
+            const layoutEl = document.getElementById("layout-root");
+            layoutEl?.classList.remove("builder-locked");
+            if (layoutEl) layoutEl.style.display = "none";
+            if (landingEl) landingEl.style.display = "block";
+            return;
+          }
+          hideAuthModal();
+        });
+
+      // Disable any "demo unlock" path; builder should only open after real login/signup.
+      if (authDemoBtn) {
+        authDemoBtn.disabled = true;
+        authDemoBtn.style.display = "none";
+      }
+      if (authLoginBtn) authLoginBtn.addEventListener("click", () => doLoginOrSignup("login"));
+      if (authSignupBtn) authSignupBtn.addEventListener("click", () => doLoginOrSignup("signup"));
+      // Allow Enter key to log in
+      if (authPasswordInput) {
+        authPasswordInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") doLoginOrSignup("login");
+        });
+      }
 
       function openProjectForm() {
         if (!projectForm) return;
@@ -1280,8 +2401,11 @@
         if (!profilePanel) return;
         profilePanel.style.display = "none";
       }
-      sbProfile?.addEventListener("click", openProfile);
+      sbProfile?.addEventListener("click", () => {
+        setShowProfile(!showProfile);
+      });
       pfCloseBtn?.addEventListener("click", closeProfile);
+      pfLogoutBtn?.addEventListener("click", () => handleLogout());
       pfSaveBtn?.addEventListener("click", async () => {
         const token = getToken();
         if (!token) {
