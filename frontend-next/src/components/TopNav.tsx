@@ -1,12 +1,13 @@
+import type { Route } from "next";
 import Link from "next/link";
 
 export function TopNav({
   showLinks = true,
-  brandHref = "/",
+  brandHref = "/" as Route,
 }: {
   showLinks?: boolean;
   // When null, the brand icon/text is not clickable (useful for auth-locked pages).
-  brandHref?: string | null;
+  brandHref?: Route | null;
 }) {
   return (
     <header className="mb-8 flex items-center justify-between gap-4">
@@ -37,7 +38,7 @@ export function TopNav({
           </Link>
           <Link
             className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-2 text-cyan-200 hover:bg-cyan-400/20"
-            href="/app?gate=1"
+            href={"/app?gate=1" as Route}
           >
             Open app
           </Link>
