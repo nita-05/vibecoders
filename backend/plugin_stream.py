@@ -3,9 +3,11 @@ import threading
 import time
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from motor.motor_asyncio import AsyncIOMotorCollection
 
 from .ai import generate_roblox_build, stream_roblox_lua_generation
+from .db import get_sync_collection
 from .schemas import BuildGameRequest, SyncLatestResponse, SyncPushRequest, SyncPushResponse
 
 router = APIRouter()
@@ -16,11 +18,6 @@ _streams: dict[str, dict] = {}
 _build_streams: dict[str, dict] = {}
 _lock = threading.Lock()
 _STREAM_TTL_SECONDS = 60 * 15
-
-# In-memory store for platform -> Studio sync.
-# `sync_key` lets your platform choose what updates apply to a given Studio instance.
-_sync_states: dict[str, dict] = {}
-
 
 def _cleanup_expired_streams() -> None:
     now = time.time()
@@ -159,7 +156,10 @@ def _generate_version() -> str:
 
 
 @router.post("/sync/push", response_model=SyncPushResponse)
-def sync_push(body: SyncPushRequest) -> SyncPushResponse:
+async def sync_push(
+    body: SyncPushRequest,
+    sync_collection: AsyncIOMotorCollection = Depends(get_sync_collection),
+) -> SyncPushResponse:
     combined_lua = (body.combined_lua or "").strip() if body.combined_lua else None
     operations = body.operations
     if (combined_lua is None or combined_lua == "") and (not operations or len(operations) == 0):
@@ -179,17 +179,25 @@ def sync_push(body: SyncPushRequest) -> SyncPushResponse:
 
     mode = "both" if len(mode_parts) == 2 else (mode_parts[0] if mode_parts else "unknown")
 
-    with _lock:
-        _sync_states[body.sync_key] = {
-            "sync_key": body.sync_key,
-            "version": version,
-            "updated_at": updated_at,
-            "combined_lua": combined_lua,
-            "operations": [op.model_dump() for op in operations] if operations else None,
-        }
+    sync_key = (body.sync_key or "").strip()
+    if not sync_key:
+        raise HTTPException(status_code=400, detail="sync_key is required")
+
+    row = {
+        "sync_key": sync_key,
+        "version": version,
+        "updated_at": updated_at,
+        "combined_lua": combined_lua,
+        "operations": [op.model_dump() for op in operations] if operations else None,
+    }
+    await sync_collection.update_one(
+        {"sync_key": sync_key},
+        {"$set": row},
+        upsert=True,
+    )
 
     return SyncPushResponse(
-        sync_key=body.sync_key,
+        sync_key=sync_key,
         version=version,
         updated_at=updated_at,
         mode=mode,
@@ -197,12 +205,23 @@ def sync_push(body: SyncPushRequest) -> SyncPushResponse:
 
 
 @router.get("/sync/latest", response_model=SyncLatestResponse)
-def sync_latest(sync_key: str = Query("default", description="Key to fetch latest code for")) -> SyncLatestResponse:
-    with _lock:
-        state = _sync_states.get(sync_key)
+async def sync_latest(
+    sync_key: str = Query("default", description="Key to fetch latest code for"),
+    sync_collection: AsyncIOMotorCollection = Depends(get_sync_collection),
+) -> SyncLatestResponse:
+    key = (sync_key or "").strip() or "default"
+    state = await sync_collection.find_one({"sync_key": key})
 
     if state is None:
-        raise HTTPException(status_code=404, detail="No sync data for this sync_key yet.")
+        # User-friendly default: when a key/project is new, return an empty payload
+        # instead of 404 so Studio plugins can poll quietly until first push.
+        return SyncLatestResponse(
+            sync_key=key,
+            version="0",
+            updated_at=datetime.now(timezone.utc).isoformat(),
+            combined_lua=None,
+            operations=None,
+        )
 
     # `state["operations"]` is already serialized (plugin expects plain tables).
     return SyncLatestResponse(

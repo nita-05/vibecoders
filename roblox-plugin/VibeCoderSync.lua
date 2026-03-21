@@ -443,6 +443,9 @@ end
 local function applyPayload(decoded)
 	local ver = tostring(decoded.version or "")
 	local lua = decoded.combined_lua
+	if ver == "0" and (type(lua) ~= "string" or lua == "") then
+		return "Waiting for first push on this key/project. Generate or refine once in the web app."
+	end
 	if type(lua) ~= "string" or lua == "" then
 		return "No combined_lua in response."
 	end

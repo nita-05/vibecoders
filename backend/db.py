@@ -12,6 +12,7 @@ mongo_client: AsyncIOMotorClient | None = None
 # This keeps the auth flow "real" (JWT + password hashing) even if DB/TLS fails.
 _in_memory_users: dict[str, dict] = {}
 _in_memory_lock = threading.Lock()
+_in_memory_sync_states: dict[str, dict] = {}
 
 
 def _mongo_unreachable(exc: Exception) -> bool:
@@ -68,6 +69,30 @@ class InMemoryUsersCollection:
                 doc[k] = v
 
 
+class InMemorySyncCollection:
+    async def find_one(self, query: dict) -> dict | None:
+        sync_key = (query.get("sync_key") or "").strip()
+        if not sync_key:
+            return None
+        with _in_memory_lock:
+            row = _in_memory_sync_states.get(sync_key)
+            return dict(row) if row else None
+
+    async def update_one(self, filter: dict, update: dict, upsert: bool = False) -> None:
+        sync_key = (filter.get("sync_key") or "").strip()
+        if not sync_key:
+            return
+        with _in_memory_lock:
+            current = _in_memory_sync_states.get(sync_key)
+            if not current and not upsert:
+                return
+            row = dict(current or {"sync_key": sync_key})
+            set_doc = (update or {}).get("$set") or {}
+            for k, v in (set_doc.items() if isinstance(set_doc, dict) else []):
+                row[k] = v
+            _in_memory_sync_states[sync_key] = row
+
+
 class ResilientUsersCollection:
     """
     Wrap the Motor collection. If Mongo is unreachable (TLS/connection),
@@ -101,6 +126,31 @@ class ResilientUsersCollection:
         except Exception as exc:
             if _mongo_unreachable(exc):
                 await self._mem.update_one(filter, update)
+                return
+            raise
+
+
+class ResilientSyncCollection:
+    """Motor wrapper with in-memory fallback for sync state reads/writes."""
+
+    def __init__(self, motor_collection: AsyncIOMotorCollection):
+        self._motor = motor_collection
+        self._mem = InMemorySyncCollection()
+
+    async def find_one(self, query: dict) -> dict | None:
+        try:
+            return await self._motor.find_one(query)
+        except Exception as exc:
+            if _mongo_unreachable(exc):
+                return await self._mem.find_one(query)
+            raise
+
+    async def update_one(self, filter: dict, update: dict, upsert: bool = False) -> None:
+        try:
+            await self._motor.update_one(filter, update, upsert=upsert)
+        except Exception as exc:
+            if _mongo_unreachable(exc):
+                await self._mem.update_one(filter, update, upsert=upsert)
                 return
             raise
 
@@ -140,4 +190,15 @@ async def get_generations_collection() -> AsyncIOMotorCollection:
     db = get_db()
     name = (os.getenv("MONGODB_GENERATIONS_COLLECTION") or "generations").strip()
     return db.get_collection(name)
+
+
+async def get_sync_collection() -> AsyncIOMotorCollection:
+    # If Mongo isn't configured, fall back to in-memory sync state.
+    if not mongo_client:
+        return InMemorySyncCollection()  # type: ignore[return-value]
+
+    db = get_db()
+    name = (os.getenv("MONGODB_SYNC_COLLECTION") or "plugin_sync_states").strip()
+    motor_coll = db.get_collection(name)
+    return ResilientSyncCollection(motor_coll)  # type: ignore[return-value]
 
