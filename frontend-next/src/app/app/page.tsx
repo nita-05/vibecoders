@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import { TopNav } from "@/components/TopNav";
+import { AppHeader } from "@/components/AppHeader";
 import { apiBase, apiFetch } from "@/lib/api";
+import {
+  getOrCreateStudioSyncKey,
+  getStudioSyncEnabled,
+  pushCombinedLuaToStudio,
+  setStudioSyncEnabled
+} from "@/lib/studioSync";
 
 type GeneratedScript = {
   lua_code: string;
@@ -221,7 +228,11 @@ function parseSseDataChunk(buffer: string): { events: string[]; rest: string } {
   return { events, rest };
 }
 
-export default function AppBuilderPage() {
+function AppBuilderPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  /** Set only from TopNav “Open app” (`/app?gate=1`). Other links use `/app` and skip this gate. */
+  const signInFromNav = searchParams.get("gate") === "1";
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
 
   const AUTH_KEY = "vibecoder-auth-token";
@@ -233,6 +244,7 @@ export default function AppBuilderPage() {
   const [authPassword, setAuthPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string>("");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const logoutRequestedRef = useRef(false);
 
   useEffect(() => {
@@ -278,6 +290,13 @@ export default function AppBuilderPage() {
     void loadAndVerify();
   }, []);
 
+  useEffect(() => {
+    if (!authLoaded || !signInFromNav) return;
+    if (authToken) {
+      router.replace("/app");
+    }
+  }, [authLoaded, signInFromNav, authToken, router]);
+
   async function doAuth(mode: "login" | "signup") {
     setAuthError("");
     const email = (authInputEmail || "").trim();
@@ -310,6 +329,10 @@ export default function AppBuilderPage() {
 
       localStorage.setItem(AUTH_KEY, token);
       setAuthToken(token);
+      setAuthModalOpen(false);
+      if (signInFromNav) {
+        router.replace("/app");
+      }
 
       // Fetch profile email for UI display.
       try {
@@ -341,8 +364,10 @@ export default function AppBuilderPage() {
       // ignore
     }
     setAuthToken(null);
+    setAuthEmail(null);
     setAuthError("");
     setAuthMode("login");
+    router.push("/");
   }
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -367,12 +392,26 @@ export default function AppBuilderPage() {
   const [pfName, setPfName] = useState("");
   const [pfDescription, setPfDescription] = useState("");
 
+  const [studioSyncEnabled, setStudioSyncEnabledState] = useState(true);
+  const [studioSyncKey, setStudioSyncKey] = useState("");
+  const [studioSyncHint, setStudioSyncHint] = useState<string | null>(null);
+  const [studioSyncCopied, setStudioSyncCopied] = useState(false);
+
   const [activeRecipe, setActiveRecipe] = useState<"powerup" | "coin" | null>(null);
   const [recipeEffect, setRecipeEffect] = useState<"health" | "speed" | "jump">("health");
   const [recipeAmount, setRecipeAmount] = useState<string>("10");
   const [recipePartName, setRecipePartName] = useState<string>("PowerUpPart");
   const [recipeCoinPoints, setRecipeCoinPoints] = useState<string>("1");
   const [recipeCoinName, setRecipeCoinName] = useState<string>("Coin");
+
+  useEffect(() => {
+    setStudioSyncEnabledState(getStudioSyncEnabled());
+  }, []);
+
+  useEffect(() => {
+    if (!currentProjectId) return;
+    setStudioSyncKey(getOrCreateStudioSyncKey(currentProjectId));
+  }, [currentProjectId]);
 
   useEffect(() => {
     const loadedProjects = loadLocalProjects();
@@ -398,6 +437,45 @@ export default function AppBuilderPage() {
   }, [projects, currentProjectId]);
 
   const canSubmit = useMemo(() => prompt.trim().length > 0 && !loading, [prompt, loading]);
+
+  function toggleStudioSync(on: boolean) {
+    setStudioSyncEnabledState(on);
+    setStudioSyncEnabled(on);
+  }
+
+  async function copyStudioSyncKey() {
+    if (!studioSyncKey) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(studioSyncKey);
+      } else {
+        const ok = fallbackCopyText(studioSyncKey);
+        if (!ok) return;
+      }
+      setStudioSyncCopied(true);
+      setTimeout(() => setStudioSyncCopied(false), 1500);
+    } catch {
+      const ok = fallbackCopyText(studioSyncKey);
+      if (!ok) return;
+      setStudioSyncCopied(true);
+      setTimeout(() => setStudioSyncCopied(false), 1500);
+    }
+  }
+
+  async function tryPushStudio(lua: string) {
+    if (!studioSyncEnabled) return;
+    const t = (lua || "").trim();
+    if (!t) return;
+    try {
+      await pushCombinedLuaToStudio(t, currentProjectId, apiBase());
+      setStudioSyncHint("Pushed to Studio sync.");
+      setTimeout(() => setStudioSyncHint(null), 3500);
+    } catch (e) {
+      console.warn(e);
+      const msg = e instanceof Error ? e.message : "Studio sync push failed";
+      setStudioSyncHint(msg);
+    }
+  }
 
   function updatePlacementAndSafety(luaText: string) {
     const sections = parseLuaScriptSections(luaText);
@@ -465,6 +543,7 @@ export default function AppBuilderPage() {
           setup_steps: null
         });
         setHistory(updated);
+        void tryPushStudio(finalLua);
       } else {
         // Keep existing JSON endpoint for image-assisted generation.
         const res = await apiFetch<GenerateScriptResponse>("/generate-script", {
@@ -491,6 +570,7 @@ export default function AppBuilderPage() {
           setup_steps: outSetup
         });
         setHistory(updated);
+        void tryPushStudio(outLua);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -565,6 +645,7 @@ export default function AppBuilderPage() {
         setup_steps: null
       });
       setHistory(updated);
+      void tryPushStudio(finalLua);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -675,36 +756,25 @@ export default function AppBuilderPage() {
     if (promptRef.current) promptRef.current.focus();
   }
 
+  const showHeaderAccount = authLoaded && (!!authToken || !!authEmail);
+
   if (!authLoaded) {
     return (
       <div>
-        <TopNav showLinks={false} brandHref={null} />
+        <AppHeader email={null} showAccountActions={false} onLogout={logout} />
         <div className="text-sm text-slate-400">Loading...</div>
       </div>
     );
   }
 
-  if (!authToken) {
+  /* TopNav “Open app” only: require sign-in before builder (previous behavior). */
+  if (signInFromNav && !authToken) {
     return (
       <div>
-        <TopNav showLinks={false} brandHref={null} />
-        <div className="mt-4">
-          {authEmail ? (
-            <div className="w-full flex flex-col items-center">
-              <div className="mt-1 break-all text-xs font-semibold text-slate-400">{authEmail}</div>
-              <button
-                type="button"
-                onClick={logout}
-                className="mt-3 w-full max-w-[360px] rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
-              >
-                Logout
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <AppHeader email={authEmail} showAccountActions={showHeaderAccount} onLogout={logout} />
 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-700/40 bg-slate-950/90 p-5">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700/40 bg-slate-950/90 p-5 shadow-2xl">
             <div className="text-base font-extrabold">Sign in to VibeCoder</div>
             <div className="mt-1 text-sm font-semibold text-slate-400">Unlock the builder by logging in with your email.</div>
 
@@ -785,20 +855,12 @@ export default function AppBuilderPage() {
 
   return (
     <div>
-      <TopNav showLinks={false} />
-
-      {authEmail ? (
-        <div className="mt-4 w-full flex flex-col items-center">
-          <div className="mt-1 break-all text-xs font-semibold text-slate-400">{authEmail}</div>
-          <button
-            type="button"
-            onClick={logout}
-            className="mt-3 w-full max-w-[360px] rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
-          >
-            Logout
-          </button>
-        </div>
-      ) : null}
+      <AppHeader
+        email={authEmail}
+        showAccountActions={showHeaderAccount}
+        onLogout={logout}
+        onSignInClick={!authToken ? () => setAuthModalOpen(true) : undefined}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
         <aside className="rounded-2xl border border-slate-700/40 bg-slate-950/30 p-5">
@@ -868,6 +930,54 @@ export default function AppBuilderPage() {
               </div>
             </div>
           ) : null}
+
+          <div className="mt-5 rounded-2xl border border-cyan-500/25 bg-slate-950/40 p-4">
+            <div className="text-sm font-extrabold text-cyan-100">Roblox Studio live sync</div>
+            <p className="mt-1 text-xs font-semibold leading-snug text-slate-400">
+              When you generate or refine, Lua is sent to the API. The sync key is{" "}
+              <span className="font-bold text-slate-300">per project</span> — switch the project above to use another key
+              in Studio.
+            </p>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-300">
+              <input
+                type="checkbox"
+                checked={studioSyncEnabled}
+                onChange={(e) => toggleStudioSync(e.target.checked)}
+              />
+              Push generated code to Studio automatically
+            </label>
+            <div className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Sync key</div>
+            <div className="mt-1 flex gap-2">
+              <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-700/50 bg-slate-950/60 px-2 py-1.5 font-mono text-[10px] text-slate-300">
+                {studioSyncKey || "—"}
+              </div>
+              <button
+                type="button"
+                onClick={() => void copyStudioSyncKey()}
+                className="min-w-[4.5rem] shrink-0 rounded-lg bg-slate-800 px-2 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700"
+              >
+                {studioSyncCopied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Plugin API base:{" "}
+              <span className="break-all font-mono text-slate-400">{apiBase()}</span>
+            </p>
+            <a
+              href="/roblox-plugin/VibeCoderSync.lua"
+              download="VibeCoderSync.lua"
+              className="mt-3 inline-flex rounded-xl bg-cyan-400/15 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/35 hover:bg-cyan-400/25"
+            >
+              Download VibeCoderSync.lua
+            </a>
+            <p className="mt-2 text-[11px] leading-snug text-slate-500">
+              Studio: <span className="font-semibold text-slate-400">Plugins → Create Plugin</span>, paste the script.
+              Enable HTTP requests in Studio settings. Paste the same API URL and Sync key, then Start polling.
+            </p>
+            {studioSyncHint ? (
+              <p className="mt-2 text-xs font-semibold text-slate-400">{studioSyncHint}</p>
+            ) : null}
+          </div>
 
           <div className="mt-5">
             <div className="text-sm font-extrabold">Templates</div>
@@ -1178,7 +1288,122 @@ export default function AppBuilderPage() {
           </div>
         </main>
       </div>
+
+      {authModalOpen && !authToken ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-modal-title"
+          onClick={() => setAuthModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-700/40 bg-slate-950/95 p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div id="auth-modal-title" className="text-base font-extrabold">
+                  Sign in to VibeCoder
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-400">Optional — use the builder without an account.</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAuthModalOpen(false)}
+                className="shrink-0 rounded-lg px-2 py-1 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAuthMode("login")}
+                className={
+                  authMode === "login"
+                    ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                    : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                }
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode("signup")}
+                className={
+                  authMode === "signup"
+                    ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                    : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                }
+              >
+                Sign up
+              </button>
+            </div>
+
+            <form
+              className="mt-4 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void doAuth(authMode);
+              }}
+            >
+              <div>
+                <label className="text-sm font-bold text-slate-200">Email</label>
+                <input
+                  className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={authInputEmail}
+                  onChange={(e) => setAuthInputEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-slate-200">Password</label>
+                <input
+                  className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="At least 6 characters"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                />
+              </div>
+
+              {authError ? (
+                <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
+                  {authError}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={authBusy || !authInputEmail.trim() || !authPassword.trim()}
+                className="w-full rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {authBusy ? "Working..." : authMode === "signup" ? "Create account" : "Continue"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+export default function AppBuilderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-sm text-slate-400">
+          Loading...
+        </div>
+      }
+    >
+      <AppBuilderPageContent />
+    </Suspense>
   );
 }
 

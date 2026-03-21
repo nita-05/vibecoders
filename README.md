@@ -144,3 +144,13 @@ Notes:
 - If your AI output includes multiple scripts, add section headers like `-- Script: ServerScriptService/GameManager` so the installer can place them automatically.
 - If there are no headers, it will create one script at `ServerScriptService/VibeCoderScript`.
 
+---
+
+## 8. Studio live sync (Next.js builder)
+
+The **Next** app at `/app` can **push** generated Lua to the API; the **`VibeCoderSync`** plugin **polls** and updates scripts in Studio (no paste step each time).
+
+- Plugin source: `roblox-plugin/VibeCoderSync.lua` (also served from the Next dev server as `/roblox-plugin/VibeCoderSync.lua`).
+- Setup details: `roblox-plugin/README-VibeCoderSync.md`.
+- API: `POST /sync/push`, `GET /sync/latest` (see `backend/plugin_stream.py`).
+

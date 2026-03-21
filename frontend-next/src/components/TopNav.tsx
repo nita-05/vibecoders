@@ -37,7 +37,7 @@ export function TopNav({
           </Link>
           <Link
             className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-2 text-cyan-200 hover:bg-cyan-400/20"
-            href="/app"
+            href="/app?gate=1"
           >
             Open app
           </Link>
