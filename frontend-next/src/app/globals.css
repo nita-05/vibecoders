@@ -5,9 +5,17 @@
 }
 
 body {
-  background: radial-gradient(800px circle at 10% 10%, rgba(99, 102, 241, 0.2), transparent 55%),
-    radial-gradient(700px circle at 90% 30%, rgba(34, 211, 238, 0.18), transparent 55%),
-    linear-gradient(160deg, #0b1020 0%, #060814 100%);
+  background-color: #060814;
+  background-image:
+    radial-gradient(100% 80% at 50% -10%, rgba(79, 70, 229, 0.22), transparent 55%),
+    radial-gradient(600px circle at 8% 15%, rgba(99, 102, 241, 0.18), transparent 50%),
+    radial-gradient(500px circle at 92% 25%, rgba(34, 211, 238, 0.14), transparent 50%),
+    linear-gradient(165deg, #0b1020 0%, #070b18 45%, #060814 100%);
+  background-attachment: fixed;
   color: #e5e7eb;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* Bottom safe area on phones (home indicator) — applied via layout padding */
 

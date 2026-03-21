@@ -2,12 +2,13 @@
 -- AI Game Builder Plugin (local plugin: copy to %LOCALAPPDATA%\Roblox\Plugins\ as .rbxmx)
 -- Security: Home -> Game Settings -> Security -> Enable Studio Access to API Services
 -- Backend: python -m uvicorn backend.main:app --reload --port 8000
+-- Production: set "API base URL" in the panel to your HTTPS API (e.g. Render), no trailing slash.
 
 local HttpService = game:GetService("HttpService")
 local StudioService = game:GetService("StudioService")
 local Selection = game:GetService("Selection")
 
-local BASE_URL = "http://localhost:8000"
+local DEFAULT_API_BASE = "http://localhost:8000"
 local BUILD_START_ENDPOINT = "/build/start"
 local BUILD_STREAM_ENDPOINT = "/build/stream"
 local SYNC_LATEST_ENDPOINT = "/sync/latest"
@@ -59,6 +60,38 @@ local layout = Instance.new("UIListLayout")
 layout.FillDirection = Enum.FillDirection.Vertical
 layout.Padding = UDim.new(0, 8)
 layout.Parent = root
+
+local apiBaseLabel = Instance.new("TextLabel")
+apiBaseLabel.Size = UDim2.new(1, 0, 0, 20)
+apiBaseLabel.BackgroundTransparency = 1
+apiBaseLabel.Text = "API base URL (use HTTPS for deployed backend)"
+apiBaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+apiBaseLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+apiBaseLabel.Font = Enum.Font.SourceSansSemibold
+apiBaseLabel.TextSize = 14
+apiBaseLabel.Parent = root
+
+local apiBaseBox = Instance.new("TextBox")
+apiBaseBox.Size = UDim2.new(1, 0, 0, 34)
+apiBaseBox.BackgroundColor3 = Color3.fromRGB(42, 45, 55)
+apiBaseBox.BorderSizePixel = 0
+apiBaseBox.ClearTextOnFocus = false
+apiBaseBox.TextXAlignment = Enum.TextXAlignment.Left
+apiBaseBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+apiBaseBox.PlaceholderText = "https://your-api.onrender.com or leave default for local"
+apiBaseBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+apiBaseBox.Font = Enum.Font.Code
+apiBaseBox.TextSize = 14
+apiBaseBox.Text = DEFAULT_API_BASE
+apiBaseBox.Parent = root
+
+local function getApiBase(): string
+	local raw = tostring(apiBaseBox.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+	if raw == "" then
+		return DEFAULT_API_BASE
+	end
+	return raw:gsub("/+$", "")
+end
 
 local promptLabel = Instance.new("TextLabel")
 promptLabel.Size = UDim2.new(1, 0, 0, 20)
@@ -188,7 +221,7 @@ outputLabelTitle.TextSize = 16
 outputLabelTitle.Parent = root
 
 local outputFrame = Instance.new("ScrollingFrame")
-outputFrame.Size = UDim2.new(1, 0, 1, -280)
+outputFrame.Size = UDim2.new(1, 0, 1, -350)
 outputFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 25)
 outputFrame.BorderSizePixel = 0
 outputFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -400,7 +433,7 @@ local function buildStudioSnapshot(): string
 end
 
 local function startBuildSession(promptText: string, studioSnapshot: string): (boolean, string)
-	local url = BASE_URL .. BUILD_START_ENDPOINT
+	local url = getApiBase() .. BUILD_START_ENDPOINT
 	local payload = {
 		prompt = promptText,
 		studio_snapshot = studioSnapshot,
@@ -422,7 +455,7 @@ end
 
 local function fetchBuildStream(streamId: string, cursor: number): (boolean, any)
 	local encodedId = HttpService:UrlEncode(streamId)
-	local url = BASE_URL
+	local url = getApiBase()
 		.. BUILD_STREAM_ENDPOINT
 		.. "?stream_id="
 		.. encodedId
@@ -906,7 +939,7 @@ local function fetchSyncLatest(syncKey: string): (boolean, any)
 		return false, "missing sync token"
 	end
 	local encodedKey = HttpService:UrlEncode(syncKey)
-	local url = BASE_URL .. SYNC_LATEST_ENDPOINT .. "?sync_key=" .. encodedKey
+	local url = getApiBase() .. SYNC_LATEST_ENDPOINT .. "?sync_key=" .. encodedKey
 	return safeGetJsonAuthorized(url, token)
 end
 
@@ -1058,10 +1091,19 @@ pcall(function()
 	if type(t) == "string" then
 		syncTokenBox.Text = t
 	end
+	local b = plugin:GetSetting("AIGameBuilderApiBase")
+	if type(b) == "string" and b ~= "" then
+		apiBaseBox.Text = b
+	end
 end)
 syncTokenBox.FocusLost:Connect(function()
 	pcall(function()
 		plugin:SetSetting("AIGameBuilderSyncBearer", syncTokenBox.Text)
+	end)
+end)
+apiBaseBox.FocusLost:Connect(function()
+	pcall(function()
+		plugin:SetSetting("AIGameBuilderApiBase", apiBaseBox.Text)
 	end)
 end)
 

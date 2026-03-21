@@ -1058,7 +1058,9 @@ function AppBuilderPageContent() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-extrabold">Project</div>
-              <div className="mt-1 text-xs font-semibold text-slate-400">Local-only demo projects</div>
+              <div className="mt-1 text-xs font-semibold text-slate-400">
+                Signed in: projects sync to the server. Not signed in: projects stay in this browser only.
+              </div>
             </div>
             <button
               type="button"
@@ -1513,7 +1515,10 @@ function AppBuilderPageContent() {
                 <div id="auth-modal-title" className="text-base font-extrabold">
                   Sign in to VibeCoder
                 </div>
-                <div className="mt-1 text-sm font-semibold text-slate-400">Optional — use the builder without an account.</div>
+                <div className="mt-1 text-sm font-semibold text-slate-400">
+                  Sign in to save projects on your account and use the same JWT in the Studio plugin. You can still try
+                  the builder locally without an account (data stays in this browser).
+                </div>
               </div>
               <button
                 type="button"

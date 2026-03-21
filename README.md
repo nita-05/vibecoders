@@ -156,3 +156,9 @@ The **Next** app at `/app` can **push** generated Lua to the API; the **`VibeCod
 - Setup details: `roblox-plugin/README-VibeCoderSync.md`.
 - API: `POST /sync/push`, `GET /sync/latest` require a **`Bearer`** token (same JWT as web sign-in); sync rows store `owner_email` (see `backend/plugin_stream.py`).
 
+### AI Game Builder plugin (`roblox-plugin/AIGameBuilder.lua`)
+
+- In the dock widget, set **API base URL** to your backend root (e.g. `https://your-service.onrender.com`) — same host your web app uses for `NEXT_PUBLIC_API_BASE`. Trailing slashes are stripped; the value is saved in Studio.
+- Local dev: leave the default `http://localhost:8000` (backend must be running).
+- **Studio sync token**: paste the JWT from the web app (Studio sync); must match the account that owns the sync row.
+

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { brandSubtitle, brandTitleGradient, navShell } from "@/lib/brandTheme";
+
 type AppHeaderProps = {
   email: string | null;
   /** When true, show email + Logout inside the logo menu. */
@@ -27,19 +29,19 @@ export function AppHeader({ email, showAccountActions, onLogout, onSignInClick }
   }, [detailsOpen]);
 
   return (
-    <header className="relative z-[100] mb-8 border-b border-slate-800/40 bg-slate-950 pb-6">
+    <header className={`relative z-[100] ${navShell} mb-6 pb-4 sm:mb-8`}>
       <div ref={rootRef} className="relative inline-block min-w-0 max-w-full">
         <button
           type="button"
           onClick={() => setDetailsOpen((v) => !v)}
-          className="flex max-w-full items-center gap-3 rounded-xl text-left outline-none ring-cyan-400/0 transition hover:bg-slate-900/40 focus-visible:ring-2"
+          className="flex max-w-full items-center gap-3 rounded-xl text-left outline-none ring-offset-2 ring-offset-slate-950 transition hover:bg-slate-900/50 focus-visible:ring-2 focus-visible:ring-cyan-400/45"
           aria-expanded={detailsOpen}
           aria-haspopup="dialog"
         >
-          <div className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-fuchsia-500 via-indigo-500 to-cyan-400 shadow-[0_0_32px_rgba(99,102,241,0.5)]" />
+          <div className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-fuchsia-500 via-indigo-500 to-cyan-400 shadow-[0_0_28px_rgba(99,102,241,0.45)] ring-1 ring-white/10" />
           <div className="min-w-0">
-            <div className="text-base font-extrabold tracking-tight">VibeCoder</div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Roblox AI Builder</div>
+            <div className={`text-base font-extrabold tracking-tight sm:text-lg ${brandTitleGradient}`}>VibeCoder</div>
+            <div className={brandSubtitle}>Roblox AI Builder</div>
           </div>
         </button>
 
