@@ -10,7 +10,26 @@
 -- 3) In Roblox Studio, open this plugin, paste JSON, click &quot;Build&quot;.
 
 local HttpService = game:GetService(&quot;HttpService&quot;)
-local StudioService = game:GetService(&quot;StudioService&quot;)
+local ChangeHistoryService = game:GetService(&quot;ChangeHistoryService&quot;)
+
+local function runWithUndoRecording(label: string, fn: () -> ())
+	local recordingId = ChangeHistoryService:TryBeginRecording(label)
+	if recordingId then
+		local ok, err = pcall(fn)
+		if ok then
+			pcall(function()
+				ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
+			end)
+		else
+			pcall(function()
+				ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Cancel)
+			end)
+			error(err)
+		end
+	else
+		fn()
+	end
+end
 
 local PLUGIN_TITLE = &quot;VibeCoder Installer&quot;
 local BUNDLE_TYPE = &quot;vibecoder_plugin_bundle_v1&quot;
@@ -224,8 +243,8 @@ buildBtn.MouseButton1Click:Connect(function()
 	local failures = {}
 	plugin:Activate(true)
 
-	local okHistory = pcall(function()
-		StudioService:RecordUndo(&quot;VibeCoder Build&quot;, function()
+	local okBuild, buildErr = pcall(function()
+		runWithUndoRecording(&quot;VibeCoder Build&quot;, function()
 			for _, s in ipairs(bundle.scripts) do
 				local okInstall, msg = installScript(s)
 				if okInstall then
@@ -237,16 +256,9 @@ buildBtn.MouseButton1Click:Connect(function()
 		end)
 	end)
 
-	if not okHistory then
-		-- Fallback without undo wrapper (older Studio)
-		for _, s in ipairs(bundle.scripts) do
-			local okInstall, msg = installScript(s)
-			if okInstall then
-				created += 1
-			else
-				table.insert(failures, tostring(msg))
-			end
-		end
+	if not okBuild then
+		status.Text = &quot;Error: &quot; .. tostring(buildErr)
+		return
 	end
 
 	if #failures &gt; 0 then

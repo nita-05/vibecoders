@@ -5,8 +5,27 @@
 -- Production: set "API base URL" in the panel to your HTTPS API (e.g. Render), no trailing slash.
 
 local HttpService = game:GetService("HttpService")
-local StudioService = game:GetService("StudioService")
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
+
+local function runWithUndoRecording(label: string, fn: () -> ())
+	local recordingId = ChangeHistoryService:TryBeginRecording(label)
+	if recordingId then
+		local ok, err = pcall(fn)
+		if ok then
+			pcall(function()
+				ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
+			end)
+		else
+			pcall(function()
+				ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Cancel)
+			end)
+			error(err)
+		end
+	else
+		fn()
+	end
+end
 
 local DEFAULT_API_BASE = "http://localhost:8000"
 local BUILD_START_ENDPOINT = "/build/start"
@@ -726,17 +745,11 @@ local function installFromGeneratedLua(luaText: string): (boolean, string)
 		end
 	end
 
-	local okHistory = pcall(function()
-		StudioService:RecordUndo("VibeCoder Build", function()
-			tryInstall()
-		end);
+	local ok, err = pcall(function()
+		runWithUndoRecording("VibeCoder Build", tryInstall)
 	end)
-
-	if not okHistory then
-		local ok, err = pcall(tryInstall)
-		if not ok then
-			return false, "Install failed: " .. tostring(err)
-		end
+	if not ok then
+		return false, "Install failed: " .. tostring(err)
 	end
 
 	if #failures > 0 then
@@ -838,17 +851,11 @@ local function applyBuildOperations(operations: { [number]: any }): (boolean, st
 		end
 	end
 
-	local okHistory = pcall(function()
-		StudioService:RecordUndo("AI Game Builder Batch", function()
-			tryApply()
-		end)
+	local ok, err = pcall(function()
+		runWithUndoRecording("AI Game Builder Batch", tryApply)
 	end)
-
-	if not okHistory then
-		local ok, err = pcall(tryApply)
-		if not ok then
-			return false, "Build operations failed: " .. tostring(err)
-		end
+	if not ok then
+		return false, "Build operations failed: " .. tostring(err)
 	end
 
 	if #failures > 0 then

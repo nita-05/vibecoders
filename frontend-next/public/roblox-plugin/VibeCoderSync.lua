@@ -6,7 +6,27 @@
 -- 4) Generate or refine code on the platform — scripts update here when the version changes.
 
 local HttpService = game:GetService("HttpService")
-local StudioService = game:GetService("StudioService")
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
+
+-- StudioService has no RecordUndo; use ChangeHistoryService for undoable plugin edits.
+local function runWithUndoRecording(label: string, fn: () -> ())
+	local recordingId = ChangeHistoryService:TryBeginRecording(label)
+	if recordingId then
+		local ok, err = pcall(fn)
+		if ok then
+			pcall(function()
+				ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
+			end)
+		else
+			pcall(function()
+				ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Cancel)
+			end)
+			error(err)
+		end
+	else
+		fn()
+	end
+end
 
 local PLUGIN_TITLE = "VibeCoder Sync"
 local SETTINGS_API = "VibeCoderSyncApiBase"
@@ -485,16 +505,21 @@ local function applyPayload(decoded)
 		return "Already up to date (" .. ver .. ")."
 	end
 
-	lastVersion = ver
-	lastCombined = lua
-
 	local created = 0
 	local notes: { string } = {}
-	StudioService:RecordUndo("VibeCoder Sync apply", function()
-		local n, msgs = applyCombinedLua(lua)
-		created = n
-		notes = msgs
+	local okApply, applyErr = pcall(function()
+		runWithUndoRecording("VibeCoder Sync apply", function()
+			local n, msgs = applyCombinedLua(lua)
+			created = n
+			notes = msgs
+		end)
 	end)
+	if not okApply then
+		return "Apply failed: " .. tostring(applyErr)
+	end
+
+	lastVersion = ver
+	lastCombined = lua
 
 	return string.format("Applied version %s — %d script(s). %s", ver ~= "" and ver or "?", created, table.concat(notes, "; "))
 end

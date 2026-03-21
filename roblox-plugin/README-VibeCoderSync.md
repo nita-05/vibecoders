@@ -29,6 +29,11 @@ Sync state is stored in **MongoDB** when `MONGODB_URI` is configured (with an in
 
 Generate or refine on the web; within a poll interval, Studio updates or creates scripts under the paths in your Lua headers.
 
+## Undo / change history
+
+Applies use **`ChangeHistoryService:TryBeginRecording` / `FinishRecording`** so edits are undoable in Studio.  
+(`StudioService:RecordUndo` is **not** a real API — older snippets that used it will error at runtime.)
+
 ## Security note
 
 **Sync key** plus **Bearer JWT** must match the account that owns the channel: `POST /sync/push` and `GET /sync/latest` require authentication. Treat the token like a password in Studio (don’t share your plugin place publicly with it embedded).
