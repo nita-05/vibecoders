@@ -417,11 +417,16 @@ local function fetchLatest(): (boolean, any?, string?)
 	end
 
 	local url = base .. "/sync/latest?sync_key=" .. HttpService:UrlEncode(key)
+	local urlStr = tostring(url)
 	local ok, body = pcall(function()
 		return HttpService:GetAsync(url)
 	end)
 	if not ok then
-		return false, nil, "HTTP error: " .. tostring(body)
+		local errText = tostring(body)
+		if string.find(errText, "404") or string.find(errText, "Not Found") then
+			return false, nil, "No sync data yet for this key (HTTP 404). Make sure you generated on the web with Studio sync ON, and the Sync key matches the selected project. URL: " .. urlStr
+		end
+		return false, nil, "HTTP error: " .. errText .. " URL: " .. urlStr
 	end
 
 	local decoded: any
