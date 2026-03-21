@@ -39,11 +39,12 @@ export function setStudioSyncEnabled(on: boolean): void {
   localStorage.setItem(SYNC_ENABLED_LS, on ? "1" : "0");
 }
 
-/** Push latest Lua to the API so the Roblox Studio sync plugin can poll `/sync/latest`. */
+/** Push latest Lua to the API so the Roblox Studio sync plugin can poll `/sync/latest`. Requires login JWT. */
 export async function pushCombinedLuaToStudio(
   lua: string,
   projectId: string,
-  baseUrl?: string
+  baseUrl?: string,
+  accessToken?: string | null,
 ): Promise<void> {
   const trimmed = (lua || "").trim();
   if (!trimmed) return;
@@ -51,9 +52,16 @@ export async function pushCombinedLuaToStudio(
   const root = (baseUrl || apiBase()).replace(/\/+$/, "");
   const sync_key = getOrCreateStudioSyncKey(projectId);
 
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = (accessToken || "").trim();
+  if (!token) {
+    throw new Error("Sign in to push to Studio sync (missing access token).");
+  }
+  headers.Authorization = `Bearer ${token}`;
+
   const res = await fetch(`${root}/sync/push`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ sync_key, combined_lua: trimmed }),
   });
 

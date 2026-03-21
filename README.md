@@ -152,5 +152,5 @@ The **Next** app at `/app` can **push** generated Lua to the API; the **`VibeCod
 
 - Plugin source: `roblox-plugin/VibeCoderSync.lua` (also served from the Next dev server as `/roblox-plugin/VibeCoderSync.lua`).
 - Setup details: `roblox-plugin/README-VibeCoderSync.md`.
-- API: `POST /sync/push`, `GET /sync/latest` (see `backend/plugin_stream.py`).
+- API: `POST /sync/push`, `GET /sync/latest` require a **`Bearer`** token (same JWT as web sign-in); sync rows store `owner_email` (see `backend/plugin_stream.py`).
 

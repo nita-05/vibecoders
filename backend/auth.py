@@ -116,6 +116,11 @@ async def require_user_email(
     return _decode_email(parts[1].strip())
 
 
+async def get_current_user_email(authorization: str | None = Header(default=None)) -> str:
+    """FastAPI dependency: Bearer JWT → normalized email (same as /auth/me)."""
+    return await require_user_email(authorization or "")
+
+
 @router.get("/me", response_model=MeResponse)
 async def me(
     authorization: str | None = Header(default=None),

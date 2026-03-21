@@ -396,6 +396,7 @@ function AppBuilderPageContent() {
   const [studioSyncKey, setStudioSyncKey] = useState("");
   const [studioSyncHint, setStudioSyncHint] = useState<string | null>(null);
   const [studioSyncCopied, setStudioSyncCopied] = useState(false);
+  const [studioTokenCopied, setStudioTokenCopied] = useState(false);
 
   const [activeRecipe, setActiveRecipe] = useState<"powerup" | "coin" | null>(null);
   const [recipeEffect, setRecipeEffect] = useState<"health" | "speed" | "jump">("health");
@@ -462,12 +463,42 @@ function AppBuilderPageContent() {
     }
   }
 
+  async function copyAccessTokenForStudio() {
+    const token = typeof window !== "undefined" ? localStorage.getItem(AUTH_KEY) : null;
+    if (!token) {
+      setStudioSyncHint("Sign in to copy your access token for the Studio plugin.");
+      setTimeout(() => setStudioSyncHint(null), 4500);
+      return;
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(token);
+      } else {
+        const ok = fallbackCopyText(token);
+        if (!ok) return;
+      }
+      setStudioTokenCopied(true);
+      setTimeout(() => setStudioTokenCopied(false), 1500);
+    } catch {
+      const ok = fallbackCopyText(token);
+      if (!ok) return;
+      setStudioTokenCopied(true);
+      setTimeout(() => setStudioTokenCopied(false), 1500);
+    }
+  }
+
   async function tryPushStudio(lua: string) {
     if (!studioSyncEnabled) return;
     const t = (lua || "").trim();
     if (!t) return;
+    const token = authToken ?? (typeof window !== "undefined" ? localStorage.getItem(AUTH_KEY) : null);
+    if (!token) {
+      setStudioSyncHint("Sign in to push generated code to Studio sync.");
+      setTimeout(() => setStudioSyncHint(null), 4500);
+      return;
+    }
     try {
-      await pushCombinedLuaToStudio(t, currentProjectId, apiBase());
+      await pushCombinedLuaToStudio(t, currentProjectId, apiBase(), token);
       setStudioSyncHint("Pushed to Studio sync.");
       setTimeout(() => setStudioSyncHint(null), 3500);
     } catch (e) {
@@ -934,7 +965,7 @@ function AppBuilderPageContent() {
           <div className="mt-5 rounded-2xl border border-cyan-500/25 bg-slate-950/40 p-4">
             <div className="text-sm font-extrabold text-cyan-100">Roblox Studio live sync</div>
             <p className="mt-1 text-xs font-semibold leading-snug text-slate-400">
-              When you generate or refine, Lua is sent to the API. The sync key is{" "}
+              When you generate or refine (while signed in), Lua is sent to the API. The sync key is{" "}
               <span className="font-bold text-slate-300">per project</span> — switch the project above to use another key
               in Studio.
             </p>
@@ -959,6 +990,21 @@ function AppBuilderPageContent() {
                 {studioSyncCopied ? "Copied!" : "Copy"}
               </button>
             </div>
+            <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Access token (paste in Studio plugin)
+            </div>
+            <div className="mt-1 flex gap-2">
+              <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-700/50 bg-slate-950/60 px-2 py-1.5 font-mono text-[10px] text-slate-500">
+                {authToken ? "•••••••• (hidden)" : "— sign in to obtain"}
+              </div>
+              <button
+                type="button"
+                onClick={() => void copyAccessTokenForStudio()}
+                className="min-w-[4.5rem] shrink-0 rounded-lg bg-slate-800 px-2 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700"
+              >
+                {studioTokenCopied ? "Copied!" : "Copy"}
+              </button>
+            </div>
             <p className="mt-2 text-xs text-slate-500">
               Plugin API base:{" "}
               <span className="break-all font-mono text-slate-400">{apiBase()}</span>
@@ -972,7 +1018,8 @@ function AppBuilderPageContent() {
             </a>
             <p className="mt-2 text-[11px] leading-snug text-slate-500">
               Studio: <span className="font-semibold text-slate-400">Plugins → Create Plugin</span>, paste the script.
-              Enable HTTP requests in Studio settings. Paste the same API URL and Sync key, then Start polling.
+              Enable HTTP requests in Studio settings. Paste the same API URL, Sync key, and access token (Copy above),
+              then Save settings and Start polling.
             </p>
             {studioSyncHint ? (
               <p className="mt-2 text-xs font-semibold text-slate-400">{studioSyncHint}</p>

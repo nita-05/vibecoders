@@ -1,8 +1,8 @@
 -- VibeCoder Studio Sync — polls your VibeCoder API for the latest generated Lua and applies it in Studio.
 -- Setup:
--- 1) On the web builder, open "Roblox Studio live sync", copy your Sync key and note the API URL.
+-- 1) On the web builder, sign in; open "Roblox Studio live sync", copy Sync key and "Copy" access token; note API URL.
 -- 2) In Studio: File → Studio Settings → Network → enable HTTP requests; add your API host if prompted.
--- 3) Paste API URL + Sync key below (or use Save), click "Start polling".
+-- 3) Paste API URL, Sync key, and access token below (Save), click "Start polling".
 -- 4) Generate or refine code on the platform — scripts update here when the version changes.
 
 local HttpService = game:GetService("HttpService")
@@ -11,6 +11,7 @@ local StudioService = game:GetService("StudioService")
 local PLUGIN_TITLE = "VibeCoder Sync"
 local SETTINGS_API = "VibeCoderSyncApiBase"
 local SETTINGS_KEY = "VibeCoderSyncKey"
+local SETTINGS_TOKEN = "VibeCoderSyncBearer"
 local SETTINGS_POLL = "VibeCoderSyncPollSec"
 
 -- Production backend (no trailing slash). Edit if you self-host.
@@ -138,7 +139,7 @@ end
 
 local titleLbl = addTitleRow("VibeCoder Studio Sync")
 titleLbl.LayoutOrder = nextLayoutOrder()
-local helpLbl = addHelp("Scroll for all fields. Status updates when you Save, Fetch, or Poll.")
+local helpLbl = addHelp("Scroll for all fields. Status updates when you Save, Fetch, or Poll. Access token must match your signed-in web account.")
 helpLbl.LayoutOrder = nextLayoutOrder()
 
 local status = Instance.new("TextLabel")
@@ -184,6 +185,17 @@ keyBox.Size = UDim2.new(1, 0, 0, 34)
 styleBox(keyBox)
 keyBox.Parent = content
 keyBox.LayoutOrder = nextLayoutOrder()
+
+local lblToken = addFieldLabel("Access token (web app → Roblox Studio live sync → Copy)")
+lblToken.LayoutOrder = nextLayoutOrder()
+local tokenBox = Instance.new("TextBox")
+tokenBox.ClearTextOnFocus = false
+tokenBox.Text = ""
+tokenBox.PlaceholderText = "paste JWT (same account as web)"
+tokenBox.Size = UDim2.new(1, 0, 0, 34)
+styleBox(tokenBox)
+tokenBox.Parent = content
+tokenBox.LayoutOrder = nextLayoutOrder()
 
 local lblPoll = addFieldLabel("Poll interval (seconds, min 2)")
 lblPoll.LayoutOrder = nextLayoutOrder()
@@ -412,23 +424,42 @@ local function fetchLatest(): (boolean, any?, string?)
 	base = string.gsub(base, "/+$", "")
 	local key = string.gsub(keyBox.Text or "", "^%s+", "")
 	key = string.gsub(key, "%s+$", "")
+	local rawToken = tokenBox.Text or ""
+	local token = string.gsub(string.gsub(rawToken, "^%s+", ""), "%s+$", "")
 	if base == "" or key == "" then
 		return false, nil, "Set API URL and Sync key first."
+	end
+	if token == "" then
+		return false, nil, "Paste Access token (Copy from web app → Roblox Studio live sync)."
 	end
 
 	local url = base .. "/sync/latest?sync_key=" .. HttpService:UrlEncode(key)
 	local urlStr = tostring(url)
-	local ok, body = pcall(function()
-		return HttpService:GetAsync(url)
+	local reqOk, result = pcall(function()
+		return HttpService:RequestAsync({
+			Url = urlStr,
+			Method = "GET",
+			Headers = {
+				Authorization = "Bearer " .. token,
+			},
+		})
 	end)
-	if not ok then
-		local errText = tostring(body)
-		if string.find(errText, "404") or string.find(errText, "Not Found") then
-			return false, nil, "No sync data yet for this key (HTTP 404). Make sure you generated on the web with Studio sync ON, and the Sync key matches the selected project. URL: " .. urlStr
+	if not reqOk then
+		return false, nil, "Request failed: " .. tostring(result) .. " URL: " .. urlStr
+	end
+	if not result.Success then
+		local code = result.StatusCode or 0
+		local body = tostring(result.Body or "")
+		if code == 401 or code == 403 then
+			return false, nil, "Auth failed (" .. tostring(code) .. "). Copy the access token again from the web (signed in). " .. body
 		end
-		return false, nil, "HTTP error: " .. errText .. " URL: " .. urlStr
+		if string.find(tostring(code), "404") or string.find(body, "404") or string.find(body, "Not Found") then
+			return false, nil, "No sync data yet for this key. Generate on the web with Studio sync ON; Sync key must match the project. URL: " .. urlStr
+		end
+		return false, nil, "HTTP " .. tostring(code) .. ": " .. body
 	end
 
+	local body = result.Body
 	local decoded: any
 	local decOk, decErr = pcall(function()
 		decoded = HttpService:JSONDecode(body)
@@ -509,10 +540,11 @@ saveBtn.MouseButton1Click:Connect(function()
 	local ok, err = pcall(function()
 		plugin:SetSetting(SETTINGS_API, apiBox.Text)
 		plugin:SetSetting(SETTINGS_KEY, keyBox.Text)
+		plugin:SetSetting(SETTINGS_TOKEN, tokenBox.Text)
 		plugin:SetSetting(SETTINGS_POLL, pollBox.Text)
 	end)
 	if ok then
-		setStatus("Saved — API, sync key, and poll interval stored for this plugin. Next: generate on the web, then Fetch & apply or Start polling.")
+		setStatus("Saved — API, sync key, access token, and poll interval stored. Next: generate on the web (signed in), then Fetch & apply or Start polling.")
 	else
 		setStatus("Save failed: " .. tostring(err))
 	end
@@ -546,6 +578,7 @@ end)
 pcall(function()
 	local a = plugin:GetSetting(SETTINGS_API)
 	local k = plugin:GetSetting(SETTINGS_KEY)
+	local tok = plugin:GetSetting(SETTINGS_TOKEN)
 	local p = plugin:GetSetting(SETTINGS_POLL)
 	if type(a) == "string" and a ~= "" then
 		local url = string.gsub(a, "/+$", "")
@@ -559,6 +592,9 @@ pcall(function()
 	end
 	if type(k) == "string" then
 		keyBox.Text = k
+	end
+	if type(tok) == "string" then
+		tokenBox.Text = tok
 	end
 	if type(p) == "string" and p ~= "" then
 		pollBox.Text = p

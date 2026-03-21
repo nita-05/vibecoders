@@ -118,6 +118,30 @@ syncKeyBox.TextSize = 14
 syncKeyBox.Text = "default"
 syncKeyBox.Parent = root
 
+local syncTokenLabel = Instance.new("TextLabel")
+syncTokenLabel.Size = UDim2.new(1, 0, 0, 20)
+syncTokenLabel.BackgroundTransparency = 1
+syncTokenLabel.Text = "Sync access token (JWT — same as web sign-in)"
+syncTokenLabel.TextXAlignment = Enum.TextXAlignment.Left
+syncTokenLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+syncTokenLabel.Font = Enum.Font.SourceSansSemibold
+syncTokenLabel.TextSize = 14
+syncTokenLabel.Parent = root
+
+local syncTokenBox = Instance.new("TextBox")
+syncTokenBox.Size = UDim2.new(1, 0, 0, 34)
+syncTokenBox.BackgroundColor3 = Color3.fromRGB(42, 45, 55)
+syncTokenBox.BorderSizePixel = 0
+syncTokenBox.ClearTextOnFocus = false
+syncTokenBox.TextXAlignment = Enum.TextXAlignment.Left
+syncTokenBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+syncTokenBox.PlaceholderText = "paste from web app Studio sync"
+syncTokenBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+syncTokenBox.Font = Enum.Font.Code
+syncTokenBox.TextSize = 14
+syncTokenBox.Text = ""
+syncTokenBox.Parent = root
+
 local generateButton = Instance.new("TextButton")
 generateButton.Size = UDim2.new(1, 0, 0, 34)
 generateButton.BackgroundColor3 = Color3.fromRGB(66, 133, 244)
@@ -164,7 +188,7 @@ outputLabelTitle.TextSize = 16
 outputLabelTitle.Parent = root
 
 local outputFrame = Instance.new("ScrollingFrame")
-outputFrame.Size = UDim2.new(1, 0, 1, -220)
+outputFrame.Size = UDim2.new(1, 0, 1, -280)
 outputFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 25)
 outputFrame.BorderSizePixel = 0
 outputFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -240,6 +264,33 @@ local function safeGetJson(url: string): (boolean, any)
 		return false, "JSON decode failed: " .. tostring(data)
 	end
 
+	return true, data
+end
+
+local function safeGetJsonAuthorized(url: string, bearerToken: string): (boolean, any)
+	local ok, result = pcall(function()
+		return HttpService:RequestAsync({
+			Url = url,
+			Method = "GET",
+			Headers = {
+				Authorization = "Bearer " .. bearerToken,
+			},
+		})
+	end)
+	if not ok then
+		return false, "HTTP request failed: " .. tostring(result)
+	end
+	if not result.Success then
+		local code = result.StatusCode or 0
+		local body = tostring(result.Body or "")
+		return false, "HTTP " .. tostring(code) .. ": " .. body
+	end
+	local decodeOk, data = pcall(function()
+		return HttpService:JSONDecode(result.Body)
+	end)
+	if not decodeOk then
+		return false, "JSON decode failed: " .. tostring(data)
+	end
 	return true, data
 end
 
@@ -850,9 +901,13 @@ local function getSyncKey(): string
 end
 
 local function fetchSyncLatest(syncKey: string): (boolean, any)
+	local token = tostring(syncTokenBox.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+	if token == "" then
+		return false, "missing sync token"
+	end
 	local encodedKey = HttpService:UrlEncode(syncKey)
 	local url = BASE_URL .. SYNC_LATEST_ENDPOINT .. "?sync_key=" .. encodedKey
-	return safeGetJson(url)
+	return safeGetJsonAuthorized(url, token)
 end
 
 local function applySyncedPayload(payload: any): (boolean, string)
@@ -996,6 +1051,18 @@ buildButton.MouseButton1Click:Connect(function()
 	else
 		updateStatus(msg, true)
 	end
+end)
+
+pcall(function()
+	local t = plugin:GetSetting("AIGameBuilderSyncBearer")
+	if type(t) == "string" then
+		syncTokenBox.Text = t
+	end
+end)
+syncTokenBox.FocusLost:Connect(function()
+	pcall(function()
+		plugin:SetSetting("AIGameBuilderSyncBearer", syncTokenBox.Text)
+	end)
 end)
 
 -- Background auto-sync: platform pushes updates via POST /sync/push.

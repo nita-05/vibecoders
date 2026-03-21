@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from .ai import generate_roblox_build, stream_roblox_lua_generation
+from .auth import get_current_user_email
 from .db import get_sync_collection
 from .schemas import BuildGameRequest, SyncLatestResponse, SyncPushRequest, SyncPushResponse
 
@@ -158,6 +159,7 @@ def _generate_version() -> str:
 @router.post("/sync/push", response_model=SyncPushResponse)
 async def sync_push(
     body: SyncPushRequest,
+    email: str = Depends(get_current_user_email),
     sync_collection: AsyncIOMotorCollection = Depends(get_sync_collection),
 ) -> SyncPushResponse:
     combined_lua = (body.combined_lua or "").strip() if body.combined_lua else None
@@ -185,6 +187,7 @@ async def sync_push(
 
     row = {
         "sync_key": sync_key,
+        "owner_email": email,
         "version": version,
         "updated_at": updated_at,
         "combined_lua": combined_lua,
@@ -207,6 +210,7 @@ async def sync_push(
 @router.get("/sync/latest", response_model=SyncLatestResponse)
 async def sync_latest(
     sync_key: str = Query("default", description="Key to fetch latest code for"),
+    email: str = Depends(get_current_user_email),
     sync_collection: AsyncIOMotorCollection = Depends(get_sync_collection),
 ) -> SyncLatestResponse:
     key = (sync_key or "").strip() or "default"
@@ -222,6 +226,10 @@ async def sync_latest(
             combined_lua=None,
             operations=None,
         )
+
+    stored_owner = state.get("owner_email")
+    if stored_owner and stored_owner != email:
+        raise HTTPException(status_code=403, detail="Not allowed for this sync key.")
 
     # `state["operations"]` is already serialized (plugin expects plain tables).
     return SyncLatestResponse(
