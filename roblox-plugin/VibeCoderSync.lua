@@ -286,6 +286,22 @@ local function getServiceRoot(serviceName: string)
 	if serviceName == "Workspace" then
 		return workspace
 	end
+	-- These are folders under StarterPlayer, not services. Models often write
+	-- `-- Script: StarterPlayerScripts/...` — resolve to the real container.
+	local lowered = string.lower(serviceName)
+	if lowered == "starterplayerscripts" or lowered == "startercharacterscripts" then
+		local okSp, sp = pcall(function()
+			return game:GetService("StarterPlayer")
+		end)
+		if okSp and sp then
+			local folderName = lowered == "starterplayerscripts" and "StarterPlayerScripts" or "StarterCharacterScripts"
+			local folder = sp:FindFirstChild(folderName)
+			if folder then
+				return folder
+			end
+		end
+		return nil
+	end
 	local ok, svc = pcall(function()
 		return game:GetService(serviceName)
 	end)

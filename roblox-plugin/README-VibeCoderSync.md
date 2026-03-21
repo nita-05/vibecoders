@@ -29,6 +29,13 @@ Sync state is stored in **MongoDB** when `MONGODB_URI` is configured (with an in
 
 Generate or refine on the web; within a poll interval, Studio updates or creates scripts under the paths in your Lua headers.
 
+### Path format (important)
+
+- Use **`-- Script: ServiceName/.../ScriptName`** headers in the generated Lua (one block per script).
+- **`ServerScriptService`**, **`ReplicatedStorage`**, etc. are valid `GetService` roots.
+- **`StarterPlayerScripts`** and **`StarterCharacterScripts`** are **not** services — they are folders under **`StarterPlayer`**. The plugin accepts the short form `StarterPlayerScripts/MyLocal` (same as `StarterPlayer/StarterPlayerScripts/MyLocal`).
+- **`Workspace/...`** paths create **Scripts** under folders/parts names — for real `Part` instances, add parts manually or use a different workflow.
+
 ## Undo / change history
 
 Applies use **`ChangeHistoryService:TryBeginRecording` / `FinishRecording`** so edits are undoable in Studio.  
