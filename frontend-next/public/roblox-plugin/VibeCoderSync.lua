@@ -13,6 +13,13 @@ local SETTINGS_API = "VibeCoderSyncApiBase"
 local SETTINGS_KEY = "VibeCoderSyncKey"
 local SETTINGS_POLL = "VibeCoderSyncPollSec"
 
+-- Production backend (no trailing slash). Edit if you self-host.
+local DEFAULT_API_BASE = "https://vibecoder-api.onrender.com"
+local LEGACY_LOCAL_API = {
+	["http://127.0.0.1:8000"] = true,
+	["http://localhost:8000"] = true,
+}
+
 local toolbar = plugin:CreateToolbar("VibeCoder")
 local toggleBtn = toolbar:CreateButton("Sync", "Open VibeCoder Studio Sync", "rbxassetid://4458901886")
 toggleBtn.ClickableWhenViewportHidden = true
@@ -160,8 +167,8 @@ local lblApi = addFieldLabel("API base URL (no trailing slash)")
 lblApi.LayoutOrder = nextLayoutOrder()
 local apiBox = Instance.new("TextBox")
 apiBox.ClearTextOnFocus = false
-apiBox.Text = "http://127.0.0.1:8000"
-apiBox.PlaceholderText = "http://127.0.0.1:8000"
+apiBox.Text = DEFAULT_API_BASE
+apiBox.PlaceholderText = DEFAULT_API_BASE
 apiBox.Size = UDim2.new(1, 0, 0, 34)
 styleBox(apiBox)
 apiBox.Parent = content
@@ -527,13 +534,20 @@ toggleBtn.Click:Connect(function()
 	widget.Enabled = not widget.Enabled
 end)
 
--- Load saved settings
+-- Load saved settings; migrate old localhost saves to production API once.
 pcall(function()
 	local a = plugin:GetSetting(SETTINGS_API)
 	local k = plugin:GetSetting(SETTINGS_KEY)
 	local p = plugin:GetSetting(SETTINGS_POLL)
 	if type(a) == "string" and a ~= "" then
-		apiBox.Text = a
+		local url = string.gsub(a, "/+$", "")
+		if LEGACY_LOCAL_API[url] then
+			url = DEFAULT_API_BASE
+			plugin:SetSetting(SETTINGS_API, url)
+		end
+		apiBox.Text = url
+	else
+		apiBox.Text = DEFAULT_API_BASE
 	end
 	if type(k) == "string" then
 		keyBox.Text = k

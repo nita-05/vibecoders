@@ -22,7 +22,7 @@ Data is held **in memory** on the API process today — fine for local dev; for 
 1. Open the web builder → **Roblox Studio live sync** → **Copy** the sync key for the **current project** (each project has its own key; switch project in the sidebar to see/copy the other key).
 
 2. In the plugin widget:
-   - **API base URL**: `http://127.0.0.1:8000` (must match `NEXT_PUBLIC_API_BASE` / your backend; no trailing slash).
+   - **API base URL**: defaults to **`https://vibecoder-api.onrender.com`** (production). For local dev, use `http://127.0.0.1:8000` — must match your web app’s API (no trailing slash).
    - **Sync key**: paste the same key as on the web.
 3. Click **Save settings**, then **Start polling** (or use **Fetch & apply now** once).
 
