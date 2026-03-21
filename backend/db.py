@@ -1,7 +1,7 @@
 import os
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
 
@@ -13,6 +13,10 @@ mongo_client: AsyncIOMotorClient | None = None
 _in_memory_users: dict[str, dict] = {}
 _in_memory_lock = threading.Lock()
 _in_memory_sync_states: dict[str, dict] = {}
+
+# One-time password reset tokens (email → new password). Used when Mongo is off or as Mongo-backed store.
+_in_memory_password_resets: dict[str, dict] = {}
+_password_reset_lock = threading.Lock()
 
 
 def _mongo_unreachable(exc: Exception) -> bool:
@@ -201,4 +205,61 @@ async def get_sync_collection() -> AsyncIOMotorCollection:
     name = (os.getenv("MONGODB_SYNC_COLLECTION") or "plugin_sync_states").strip()
     motor_coll = db.get_collection(name)
     return ResilientSyncCollection(motor_coll)  # type: ignore[return-value]
+
+
+def _norm_email_reset(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+async def save_password_reset_token(email: str, token: str, ttl_minutes: int = 60) -> None:
+    """Store a single active reset token per email."""
+    email_n = _norm_email_reset(email)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes)
+    if not mongo_client:
+        with _password_reset_lock:
+            to_del = [t for t, v in _in_memory_password_resets.items() if v.get("email") == email_n]
+            for t in to_del:
+                del _in_memory_password_resets[t]
+            _in_memory_password_resets[token] = {"email": email_n, "expires_at": expires}
+        return
+
+    coll = get_db().get_collection((os.getenv("MONGODB_PASSWORD_RESETS_COLLECTION") or "password_resets").strip())
+    await coll.delete_many({"email": email_n})
+    await coll.insert_one(
+        {
+            "email": email_n,
+            "token": token,
+            "expires_at": expires,
+            "created_at": datetime.now(timezone.utc),
+        }
+    )
+
+
+async def consume_password_reset_token(token: str) -> str | None:
+    """If token is valid, remove it and return normalized email; else None."""
+    cleaned = (token or "").strip()
+    if not cleaned:
+        return None
+    now = datetime.now(timezone.utc)
+    if not mongo_client:
+        with _password_reset_lock:
+            row = _in_memory_password_resets.pop(cleaned, None)
+        if not row:
+            return None
+        exp = row.get("expires_at")
+        if exp and exp < now:
+            return None
+        em = str(row.get("email") or "").strip().lower()
+        return em or None
+
+    coll = get_db().get_collection((os.getenv("MONGODB_PASSWORD_RESETS_COLLECTION") or "password_resets").strip())
+    doc = await coll.find_one({"token": cleaned})
+    if not doc:
+        return None
+    await coll.delete_one({"_id": doc["_id"]})
+    exp = doc.get("expires_at")
+    if exp and exp < now:
+        return None
+    em = str(doc.get("email") or "").strip().lower()
+    return em or None
 

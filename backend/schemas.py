@@ -202,6 +202,25 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., description="Account email address")
+
+
+class ForgotPasswordResponse(BaseModel):
+    ok: bool = True
+    message: str = Field(
+        default=(
+            "Request received. If this email is already registered, a reset link was sent. "
+            "Otherwise use Sign up first."
+        )
+    )
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=8, description="Token from the reset email link")
+    new_password: str = Field(..., min_length=6, description="New password (min 6 chars)")
+
+
 class GenerationCreateRequest(BaseModel):
     project_id: str = Field(..., description="Project id (stringified ObjectId)")
     prompt: str = Field(..., description="User prompt used for generation")

@@ -239,11 +239,12 @@ function AppBuilderPageContent() {
   const [authLoaded, setAuthLoaded] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [authPanel, setAuthPanel] = useState<"login" | "signup" | "forgot">("login");
   const [authInputEmail, setAuthInputEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string>("");
+  const [forgotMessage, setForgotMessage] = useState<string>("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const logoutRequestedRef = useRef(false);
 
@@ -297,8 +298,51 @@ function AppBuilderPageContent() {
     }
   }, [authLoaded, signInFromNav, authToken, router]);
 
+  function formatApiDetail(data: unknown): string {
+    const d = data as { detail?: unknown };
+    if (typeof d.detail === "string") return d.detail;
+    if (Array.isArray(d.detail) && d.detail.length) {
+      const first = d.detail[0] as { msg?: string };
+      if (first && typeof first.msg === "string") return first.msg;
+    }
+    return "Request failed.";
+  }
+
+  async function doForgotPassword() {
+    setAuthError("");
+    setForgotMessage("");
+    const email = (authInputEmail || "").trim();
+    if (!email) {
+      setAuthError("Enter your email.");
+      return;
+    }
+
+    setAuthBusy(true);
+    try {
+      const res = await fetch(apiBase() + "/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(formatApiDetail(data));
+      }
+      const msg = (data as { message?: string }).message;
+      setForgotMessage(
+        msg ||
+          "Request received. If this email is already registered, check your inbox/spam. If you never signed up, use the Sign up tab first."
+      );
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Request failed.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   async function doAuth(mode: "login" | "signup") {
     setAuthError("");
+    setForgotMessage("");
     const email = (authInputEmail || "").trim();
     const password = (authPassword || "").trim();
 
@@ -322,7 +366,19 @@ function AppBuilderPageContent() {
 
       const data = await res.json().catch(() => ({} as { detail?: string; access_token?: string }));
       if (!res.ok) {
-        throw new Error(data?.detail || "Authentication failed");
+        if (res.status === 409 && mode === "signup") {
+          setAuthError(
+            "This email is already registered. Use the Sign in tab with your existing password (do not create another account)."
+          );
+          return;
+        }
+        if (res.status === 401 && mode === "login") {
+          setAuthError(
+            "Invalid email or password. If you forgot your password, use Forgot password below."
+          );
+          return;
+        }
+        throw new Error(formatApiDetail(data));
       }
       const token = data?.access_token;
       if (!token) throw new Error("No access token returned.");
@@ -366,7 +422,8 @@ function AppBuilderPageContent() {
     setAuthToken(null);
     setAuthEmail(null);
     setAuthError("");
-    setAuthMode("login");
+    setForgotMessage("");
+    setAuthPanel("login");
     router.push("/");
   }
 
@@ -810,74 +867,168 @@ function AppBuilderPageContent() {
             <div className="mt-1 text-sm font-semibold text-slate-400">Unlock the builder by logging in with your email.</div>
 
             <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAuthMode("login")}
-                className={
-                  authMode === "login"
-                    ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
-                    : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
-                }
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode("signup")}
-                className={
-                  authMode === "signup"
-                    ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
-                    : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
-                }
-              >
-                Sign up
-              </button>
+              {authPanel === "forgot" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthPanel("login");
+                    setAuthError("");
+                    setForgotMessage("");
+                  }}
+                  className="w-full rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                >
+                  ← Back to sign in
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthPanel("login");
+                      setAuthError("");
+                      setForgotMessage("");
+                    }}
+                    className={
+                      authPanel === "login"
+                        ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                        : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                    }
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthPanel("signup");
+                      setAuthError("");
+                      setForgotMessage("");
+                    }}
+                    className={
+                      authPanel === "signup"
+                        ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                        : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                    }
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
             </div>
 
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void doAuth(authMode);
-              }}
-            >
-              <div>
-                <label className="text-sm font-bold text-slate-200">Email</label>
-                <input
-                  className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={authInputEmail}
-                  onChange={(e) => setAuthInputEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-bold text-slate-200">Password</label>
-                <input
-                  className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="At least 6 characters"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                />
-              </div>
-
-              {authError ? (
-                <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
-                  {authError}
-                </div>
-              ) : null}
-
-              <button
-                type="submit"
-                disabled={authBusy || !authInputEmail.trim() || !authPassword.trim()}
-                className="w-full rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+            {authPanel === "forgot" ? (
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void doForgotPassword();
+                }}
               >
-                {authBusy ? "Working..." : authMode === "signup" ? "Create account" : "Continue"}
-              </button>
-            </form>
+                <div className="rounded-xl border border-slate-600/50 bg-slate-900/60 px-3 py-2 text-xs font-semibold leading-relaxed text-slate-400">
+                  <span className="text-slate-200">Note:</span> A reset email is only sent if this address
+                  already has an account. New users: go back and use{" "}
+                  <button
+                    type="button"
+                    className="font-extrabold text-cyan-300 underline decoration-cyan-500/50"
+                    onClick={() => {
+                      setAuthPanel("signup");
+                      setForgotMessage("");
+                      setAuthError("");
+                    }}
+                  >
+                    Sign up
+                  </button>{" "}
+                  first.
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-slate-200">Email</label>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={authInputEmail}
+                    onChange={(e) => setAuthInputEmail(e.target.value)}
+                  />
+                </div>
+                {forgotMessage ? (
+                  <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+                    {forgotMessage}
+                  </div>
+                ) : null}
+                {authError ? (
+                  <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
+                    {authError}
+                  </div>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={authBusy || !authInputEmail.trim()}
+                  className="w-full rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {authBusy ? "Working..." : "Send reset link"}
+                </button>
+              </form>
+            ) : (
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void doAuth(authPanel);
+                }}
+              >
+                <div>
+                  <label className="text-sm font-bold text-slate-200">Email</label>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={authInputEmail}
+                    onChange={(e) => setAuthInputEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-sm font-bold text-slate-200">Password</label>
+                    {authPanel === "login" ? (
+                      <button
+                        type="button"
+                        className="text-xs font-bold text-cyan-300/90 hover:underline"
+                        onClick={() => {
+                          setAuthPanel("forgot");
+                          setAuthError("");
+                          setForgotMessage("");
+                        }}
+                      >
+                        Forgot password?
+                      </button>
+                    ) : null}
+                  </div>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    type="password"
+                    autoComplete={authPanel === "signup" ? "new-password" : "current-password"}
+                    placeholder="At least 6 characters"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                  />
+                </div>
+
+                {authError ? (
+                  <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
+                    {authError}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={authBusy || !authInputEmail.trim() || !authPassword.trim()}
+                  className="w-full rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {authBusy ? "Working..." : authPanel === "signup" ? "Create account" : "Continue"}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>
@@ -890,7 +1041,16 @@ function AppBuilderPageContent() {
         email={authEmail}
         showAccountActions={showHeaderAccount}
         onLogout={logout}
-        onSignInClick={!authToken ? () => setAuthModalOpen(true) : undefined}
+        onSignInClick={
+          !authToken
+            ? () => {
+                setAuthPanel("login");
+                setAuthError("");
+                setForgotMessage("");
+                setAuthModalOpen(true);
+              }
+            : undefined
+        }
       />
 
       <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
@@ -1365,74 +1525,168 @@ function AppBuilderPageContent() {
             </div>
 
             <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAuthMode("login")}
-                className={
-                  authMode === "login"
-                    ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
-                    : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
-                }
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode("signup")}
-                className={
-                  authMode === "signup"
-                    ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
-                    : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
-                }
-              >
-                Sign up
-              </button>
+              {authPanel === "forgot" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthPanel("login");
+                    setAuthError("");
+                    setForgotMessage("");
+                  }}
+                  className="w-full rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                >
+                  ← Back to sign in
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthPanel("login");
+                      setAuthError("");
+                      setForgotMessage("");
+                    }}
+                    className={
+                      authPanel === "login"
+                        ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                        : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                    }
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthPanel("signup");
+                      setAuthError("");
+                      setForgotMessage("");
+                    }}
+                    className={
+                      authPanel === "signup"
+                        ? "flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                        : "flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                    }
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
             </div>
 
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void doAuth(authMode);
-              }}
-            >
-              <div>
-                <label className="text-sm font-bold text-slate-200">Email</label>
-                <input
-                  className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={authInputEmail}
-                  onChange={(e) => setAuthInputEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-bold text-slate-200">Password</label>
-                <input
-                  className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="At least 6 characters"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                />
-              </div>
-
-              {authError ? (
-                <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
-                  {authError}
-                </div>
-              ) : null}
-
-              <button
-                type="submit"
-                disabled={authBusy || !authInputEmail.trim() || !authPassword.trim()}
-                className="w-full rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+            {authPanel === "forgot" ? (
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void doForgotPassword();
+                }}
               >
-                {authBusy ? "Working..." : authMode === "signup" ? "Create account" : "Continue"}
-              </button>
-            </form>
+                <div className="rounded-xl border border-slate-600/50 bg-slate-900/60 px-3 py-2 text-xs font-semibold leading-relaxed text-slate-400">
+                  <span className="text-slate-200">Note:</span> A reset email is only sent if this address
+                  already has an account. New users: go back and use{" "}
+                  <button
+                    type="button"
+                    className="font-extrabold text-cyan-300 underline decoration-cyan-500/50"
+                    onClick={() => {
+                      setAuthPanel("signup");
+                      setForgotMessage("");
+                      setAuthError("");
+                    }}
+                  >
+                    Sign up
+                  </button>{" "}
+                  first.
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-slate-200">Email</label>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={authInputEmail}
+                    onChange={(e) => setAuthInputEmail(e.target.value)}
+                  />
+                </div>
+                {forgotMessage ? (
+                  <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+                    {forgotMessage}
+                  </div>
+                ) : null}
+                {authError ? (
+                  <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
+                    {authError}
+                  </div>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={authBusy || !authInputEmail.trim()}
+                  className="w-full rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {authBusy ? "Working..." : "Send reset link"}
+                </button>
+              </form>
+            ) : (
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void doAuth(authPanel);
+                }}
+              >
+                <div>
+                  <label className="text-sm font-bold text-slate-200">Email</label>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={authInputEmail}
+                    onChange={(e) => setAuthInputEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-sm font-bold text-slate-200">Password</label>
+                    {authPanel === "login" ? (
+                      <button
+                        type="button"
+                        className="text-xs font-bold text-cyan-300/90 hover:underline"
+                        onClick={() => {
+                          setAuthPanel("forgot");
+                          setAuthError("");
+                          setForgotMessage("");
+                        }}
+                      >
+                        Forgot password?
+                      </button>
+                    ) : null}
+                  </div>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    type="password"
+                    autoComplete={authPanel === "signup" ? "new-password" : "current-password"}
+                    placeholder="At least 6 characters"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                  />
+                </div>
+
+                {authError ? (
+                  <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
+                    {authError}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={authBusy || !authInputEmail.trim() || !authPassword.trim()}
+                  className="w-full rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {authBusy ? "Working..." : authPanel === "signup" ? "Create account" : "Continue"}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       ) : null}
