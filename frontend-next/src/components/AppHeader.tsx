@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { BrandLogo } from "@/components/BrandLogo";
 import { brandSubtitle, brandTitleGradient, navShell } from "@/lib/brandTheme";
 
 type AppHeaderProps = {
@@ -38,7 +39,7 @@ export function AppHeader({ email, showAccountActions, onLogout, onSignInClick }
           aria-expanded={detailsOpen}
           aria-haspopup="dialog"
         >
-          <div className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-fuchsia-500 via-indigo-500 to-cyan-400 shadow-[0_0_28px_rgba(99,102,241,0.45)] ring-1 ring-white/10" />
+          <BrandLogo />
           <div className="min-w-0">
             <div className={`text-base font-extrabold tracking-tight sm:text-lg ${brandTitleGradient}`}>VibeCoder</div>
             <div className={brandSubtitle}>Roblox AI Builder</div>

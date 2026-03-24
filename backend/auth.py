@@ -199,6 +199,48 @@ async def login(payload: AuthLoginRequest, users: AsyncIOMotorCollection = Depen
     return AuthTokenResponse(access_token=_create_access_token(email=email))
 
 
+@router.get("/recent-prompts")
+async def list_recent_prompts(
+    authorization: str | None = Header(default=None),
+    users: AsyncIOMotorCollection = Depends(get_users_collection),
+) -> dict:
+    email = await require_user_email(authorization or "")
+    user = await users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    items = user.get("recent_prompts") or []
+    if not isinstance(items, list):
+        items = []
+    cleaned = [str(x).strip() for x in items if isinstance(x, str) and str(x).strip()]
+    return {"items": cleaned[:20]}
+
+
+@router.post("/recent-prompts")
+async def save_recent_prompt(
+    body: dict,
+    authorization: str | None = Header(default=None),
+    users: AsyncIOMotorCollection = Depends(get_users_collection),
+) -> dict:
+    email = await require_user_email(authorization or "")
+    user = await users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    prompt = str((body or {}).get("prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt is required.")
+
+    existing = user.get("recent_prompts") or []
+    if not isinstance(existing, list):
+        existing = []
+    cleaned = [str(x).strip() for x in existing if isinstance(x, str) and str(x).strip()]
+    merged = [prompt] + [x for x in cleaned if x != prompt]
+    merged = merged[:20]
+
+    await users.update_one({"_id": user["_id"]}, {"$set": {"recent_prompts": merged}})
+    return {"ok": True, "items": merged}
+
+
 async def require_user_email(
     authorization: str | None,
 ) -> str:

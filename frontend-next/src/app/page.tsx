@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useRef, useState } from "react";
 
 import { TopNav } from "@/components/TopNav";
 
@@ -7,6 +10,53 @@ import { TopNav } from "@/components/TopNav";
  * wrapper `div` for the card/panel so structure stays easy to edit.
  */
 export default function HomePage() {
+  const [landingPrompt, setLandingPrompt] = useState("");
+  const landingPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  const templateCards = [
+    {
+      title: "Coin collector MVP",
+      chip: "templates + recipes",
+      prompt: `Build a small complete Roblox coin-collector game (MVP) using Roblox Lua.
+
+Requirements:
+- Use leaderstats named Points (default 0).
+- Spawn 15 coins around Workspace at random positions.
+- Touch coin -> disappear +1 Point, respawn after 5 seconds.
+- Add a 60-second timer and show a simple ScreenGui at the end.`
+    },
+    {
+      title: "Escape from zombies",
+      chip: "full game",
+      prompt: `Build a small complete Roblox "escape from zombies" game (MVP) using Roblox Lua.
+
+Requirements:
+- Workspace contains a Folder named Zombies with 5 NPC zombie models.
+- Zombies chase the nearest player (PathfindingService).
+- Zombie touch deals 15 damage with a short cooldown.
+- Add a 90-second survival timer and show simple win/lose UI.`
+    }
+  ] as const;
+
+  function openAppWithPrompt() {
+    if (typeof window !== "undefined") {
+      const cleaned = landingPrompt.trim();
+      if (cleaned) {
+        window.localStorage.setItem("vb-landing-prompt-draft", cleaned);
+      } else {
+        window.localStorage.removeItem("vb-landing-prompt-draft");
+      }
+      window.location.href = "/app#generate-idea";
+    }
+  }
+
+  function applyLandingTemplate(text: string) {
+    setLandingPrompt(text);
+    window.requestAnimationFrame(() => {
+      landingPromptRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      landingPromptRef.current?.focus();
+    });
+  }
+
   return (
     <div className="landing-root space-y-10 pb-8 sm:space-y-12 sm:pb-10">
       <TopNav />
@@ -15,10 +65,11 @@ export default function HomePage() {
       <section
         id="hero"
         aria-labelledby="hero-heading"
-        className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-4 shadow-lg shadow-black/20 backdrop-blur-sm sm:rounded-3xl sm:p-6 lg:p-8"
+        className="relative overflow-hidden rounded-2xl border border-slate-700/40 bg-slate-950/45 p-4 shadow-[0_18px_70px_rgba(2,6,23,0.55)] backdrop-blur-sm sm:rounded-3xl sm:p-6 lg:p-8"
       >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(6,182,212,0.14),transparent_42%),radial-gradient(circle_at_84%_8%,rgba(99,102,241,0.16),transparent_34%)]" />
         <div className="grid items-center gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10">
-          <div className="max-w-2xl">
+          <div className="relative max-w-2xl">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-bold text-cyan-100 sm:px-3 sm:text-xs">
                 Describe → Roblox Lua
@@ -35,57 +86,39 @@ export default function HomePage() {
               id="hero-heading"
               className="mt-4 text-balance bg-gradient-to-br from-white via-cyan-100 to-indigo-200 bg-clip-text text-3xl font-extrabold leading-tight tracking-tight text-transparent sm:mt-5 sm:text-4xl lg:text-[2.75rem] lg:leading-[1.15]"
             >
-              VibeCoder: from a short description to Roblox Lua you can paste in Studio.
+              Turn your idea into Roblox Lua instantly.
             </h1>
 
-            <p className="mt-4 text-sm leading-relaxed text-slate-300 sm:text-base">
-              You describe the mechanic or game change; the app returns Lua structured with{" "}
-              <code className="rounded bg-slate-900/70 px-1.5 py-0.5 text-sm text-cyan-100/90">-- Script: …</code>{" "}
-              headers so you know where each piece goes. Add up to two reference images if it helps. Sign in to keep
-              projects on your account; the optional Roblox Studio plugin can pull the latest generated code when you
-              wire it to the same API and sync key.
-            </p>
-
-            <div className="mt-6 flex flex-col gap-2 sm:mt-7 sm:flex-row sm:flex-wrap sm:gap-3">
-              <Link
-                href="/app"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-cyan-400/20 px-4 py-2.5 text-center text-sm font-bold text-cyan-100 ring-1 ring-cyan-400/40 hover:bg-cyan-400/25 sm:min-h-0 sm:py-2"
-              >
-                Open the builder
-              </Link>
-              <Link
-                href="/docs"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-slate-900/50 px-4 py-2.5 text-center text-sm font-bold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70 sm:min-h-0 sm:py-2"
-              >
-                See how it works
-              </Link>
+            <div className="mt-6 rounded-2xl border border-slate-700/45 bg-slate-950/55 p-3">
+              <textarea
+                ref={landingPromptRef}
+                value={landingPrompt}
+                onChange={(e) => setLandingPrompt(e.target.value)}
+                placeholder="Enter your idea to create"
+                rows={3}
+                className="w-full resize-y rounded-xl border border-cyan-400/35 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-slate-200 placeholder:text-slate-400 ring-1 ring-cyan-400/20 outline-none transition focus:border-cyan-300/55 focus:ring-cyan-300/40"
+              />
             </div>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {[
-                {
-                  k: "Clear placement",
-                  v: 'Outputs use `-- Script: Service/Path` headers so you can match scripts to places in your place file.'
-                },
-                {
-                  k: "Iterate quickly",
-                  v: "Regenerate from a new prompt or refine what you already have—then test in Studio and repeat."
-                },
-                {
-                  k: "Account + plugin (optional)",
-                  v: "Sign in to sync projects with the backend. The Studio plugin reads the same API using your token and project sync key."
-                }
-              ].map((x) => (
-                <div key={x.k} className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-4">
-                  <div className="text-sm font-extrabold text-slate-100">{x.k}</div>
-                  <div className="mt-1 text-xs font-semibold leading-relaxed text-slate-400">{x.v}</div>
-                </div>
-              ))}
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={openAppWithPrompt}
+                className="inline-flex min-h-[42px] items-center justify-center rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 transition hover:-translate-y-0.5 hover:bg-cyan-400/25"
+              >
+                Generate Code
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-2 text-xs font-semibold text-slate-300 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-700/40 bg-slate-900/45 px-3 py-2">Fast AI-assisted output</div>
+              <div className="rounded-xl border border-slate-700/40 bg-slate-900/45 px-3 py-2">Structured Studio placement</div>
+              <div className="rounded-xl border border-slate-700/40 bg-slate-900/45 px-3 py-2">Template-powered start</div>
             </div>
           </div>
 
-          <div>
-            <div className="rounded-3xl border border-slate-700/35 bg-slate-950/40 p-5">
+          <div className="relative">
+            <div className="rounded-3xl border border-slate-700/35 bg-slate-950/55 p-5 shadow-[0_10px_35px_rgba(2,6,23,0.42)]">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-xs font-extrabold text-slate-200">Example output</div>
                 <span className="rounded-full border border-indigo-400/35 bg-indigo-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-100">
@@ -123,9 +156,57 @@ end
         </div>
       </section>
 
-      {/* 2) Product overview: “what it does” + “flow” in ONE panel (two sub-blocks) */}
+      {/* 2) Starter prompts */}
+      <section id="starter-prompts" aria-labelledby="examples-title">
+        <div className="rounded-3xl border border-slate-700/40 bg-slate-950/35 p-5 shadow-[0_14px_42px_rgba(2,6,23,0.34)] sm:p-7">
+          <h2
+            id="examples-title"
+            className="text-balance text-xl font-extrabold tracking-tight text-slate-50 sm:text-2xl"
+          >
+            Templates
+          </h2>
+
+          <div className="mt-2 text-sm font-semibold text-slate-400">
+            Pick a template, modify it, and generate immediately.
+          </div>
+
+          <div className="template-marquee mt-5">
+            <div className="template-marquee-track">
+              {templateCards.map((x) => (
+                <div key={x.title} className="min-w-[min(88vw,29rem)] rounded-3xl border border-slate-700/40 bg-slate-950/45 p-5 shadow-[0_10px_30px_rgba(2,6,23,0.3)] sm:min-w-[26rem]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-extrabold text-slate-100">{x.title}</div>
+                    <div className="mt-1 text-xs font-semibold text-slate-400">Use this template, then open the app.</div>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-slate-700/60 bg-slate-900/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-200">
+                    {x.chip}
+                  </span>
+                </div>
+                <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-700/35 bg-slate-950/50">
+                  <pre className="max-h-[min(240px,40vh)] min-w-0 overflow-auto p-4 text-xs leading-relaxed text-slate-100">
+                    <code className="font-mono">{x.prompt}</code>
+                  </pre>
+                </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => applyLandingTemplate(x.prompt)}
+                    className="inline-flex rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                  >
+                    Use template
+                  </button>
+                </div>
+              </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3) Product overview: “what it does” + “flow” in ONE panel (two sub-blocks) */}
       <section id="product-overview" aria-labelledby="features-title">
-        <div className="rounded-3xl border border-slate-700/40 bg-slate-950/35 p-5 sm:p-7">
+        <div className="rounded-3xl border border-slate-700/40 bg-slate-950/35 p-5 shadow-[0_14px_42px_rgba(2,6,23,0.34)] sm:p-7">
           <div className="space-y-10 sm:space-y-12">
             <div>
               <h2
@@ -198,65 +279,9 @@ end
         </div>
       </section>
 
-      {/* 3) Starter prompts */}
-      <section id="starter-prompts" aria-labelledby="examples-title">
-        <div className="rounded-3xl border border-slate-700/40 bg-slate-950/35 p-5 sm:p-7">
-          <h2
-            id="examples-title"
-            className="text-balance text-xl font-extrabold tracking-tight text-slate-50 sm:text-2xl"
-          >
-            Try a starter prompt
-          </h2>
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {[
-              {
-                title: "Coin collector MVP",
-                chip: "templates + recipes",
-                prompt: `Build a small complete Roblox coin-collector game (MVP) using Roblox Lua.
-
-Requirements:
-- Use leaderstats named Points (default 0).
-- Spawn 15 coins around Workspace at random positions.
-- Touch coin -> disappear +1 Point, respawn after 5 seconds.
-- Add a 60-second timer and show a simple ScreenGui at the end.`
-              },
-              {
-                title: "Escape from zombies",
-                chip: "full game",
-                prompt: `Build a small complete Roblox "escape from zombies" game (MVP) using Roblox Lua.
-
-Requirements:
-- Workspace contains a Folder named Zombies with 5 NPC zombie models.
-- Zombies chase the nearest player (PathfindingService).
-- Zombie touch deals 15 damage with a short cooldown.
-- Add a 90-second survival timer and show simple win/lose UI.`
-              }
-            ].map((x) => (
-              <div key={x.title} className="rounded-3xl border border-slate-700/40 bg-slate-950/40 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-extrabold text-slate-100">{x.title}</div>
-                    <div className="mt-1 text-xs font-semibold text-slate-400">Copy this idea into the builder.</div>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-slate-700/60 bg-slate-900/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-200">
-                    {x.chip}
-                  </span>
-                </div>
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-700/35 bg-slate-950/50">
-                  <pre className="max-h-[min(240px,40vh)] min-w-0 overflow-auto p-4 text-xs leading-relaxed text-slate-100">
-                    <code className="font-mono">{x.prompt}</code>
-                  </pre>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* 4) FAQ */}
       <section id="faq" aria-labelledby="faq-title">
-        <div className="rounded-3xl border border-slate-700/40 bg-slate-950/35 p-5 sm:p-7">
+        <div className="rounded-3xl border border-slate-700/40 bg-slate-950/35 p-5 shadow-[0_14px_42px_rgba(2,6,23,0.34)] sm:p-7">
           <h2 id="faq-title" className="text-balance text-xl font-extrabold tracking-tight text-slate-50 sm:text-2xl">
             FAQ
           </h2>
@@ -311,7 +336,7 @@ Requirements:
 
       {/* 5) Final CTA */}
       <section id="cta" aria-labelledby="cta-title">
-        <div className="rounded-3xl border border-cyan-400/25 bg-cyan-400/5 p-5 sm:p-7">
+        <div className="rounded-3xl border border-cyan-400/25 bg-cyan-400/5 p-5 shadow-[0_14px_42px_rgba(2,6,23,0.34)] sm:p-7">
           <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-center">
             <div>
               <h2
@@ -326,16 +351,16 @@ Requirements:
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:gap-3">
               <Link
-                href="/app"
+                href="/app#generate-idea"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-cyan-400/20 px-5 py-2.5 font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 hover:bg-cyan-400/25 sm:min-h-0"
               >
                 Open the builder
               </Link>
               <Link
-                href="/docs"
+                href="#product-overview"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-slate-900/50 px-5 py-2.5 font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70 sm:min-h-0"
               >
-                Read docs
+                View features
               </Link>
             </div>
           </div>

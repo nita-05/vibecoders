@@ -1,6 +1,8 @@
 import os
+import json
 import threading
 import uuid
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
@@ -13,6 +15,8 @@ mongo_client: AsyncIOMotorClient | None = None
 _in_memory_users: dict[str, dict] = {}
 _in_memory_lock = threading.Lock()
 _in_memory_sync_states: dict[str, dict] = {}
+_users_loaded_from_disk = False
+_LOCAL_USERS_PATH = Path(__file__).resolve().parent / ".local_users.json"
 
 # One-time password reset tokens (email → new password). Used when Mongo is off or as Mongo-backed store.
 _in_memory_password_resets: dict[str, dict] = {}
@@ -30,11 +34,55 @@ def _mongo_unreachable(exc: Exception) -> bool:
 
 
 class InMemoryUsersCollection:
+    def _json_safe_user(self, user: dict) -> dict:
+        out: dict = {}
+        for k, v in user.items():
+            if isinstance(v, datetime):
+                out[k] = v.isoformat()
+            else:
+                out[k] = v
+        return out
+
+    def _load_from_disk_if_needed(self) -> None:
+        global _users_loaded_from_disk
+        if _users_loaded_from_disk:
+            return
+        if not _LOCAL_USERS_PATH.exists():
+            _users_loaded_from_disk = True
+            return
+        try:
+            raw = _LOCAL_USERS_PATH.read_text(encoding="utf-8")
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                cleaned: dict[str, dict] = {}
+                for email, doc in data.items():
+                    if not isinstance(email, str) or not isinstance(doc, dict):
+                        continue
+                    em = email.strip().lower()
+                    if not em:
+                        continue
+                    cleaned[em] = {**doc, "email": em, "_id": doc.get("_id") or uuid.uuid4().hex}
+                _in_memory_users.update(cleaned)
+        except Exception:
+            # Keep auth usable even if local file is malformed.
+            pass
+        finally:
+            _users_loaded_from_disk = True
+
+    def _save_to_disk(self) -> None:
+        try:
+            payload = {email: self._json_safe_user(doc) for email, doc in _in_memory_users.items()}
+            _LOCAL_USERS_PATH.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
+        except Exception:
+            # Best-effort persistence only.
+            pass
+
     async def find_one(self, query: dict) -> dict | None:
         email = (query.get("email") or "").strip().lower()
         if not email:
             return None
         with _in_memory_lock:
+            self._load_from_disk_if_needed()
             user = _in_memory_users.get(email)
             return dict(user) if user else None
 
@@ -43,14 +91,17 @@ class InMemoryUsersCollection:
         if not email:
             raise ValueError("InMemoryUsersCollection.insert_one requires a non-empty email.")
         with _in_memory_lock:
+            self._load_from_disk_if_needed()
             _in_memory_users[email] = {
                 **doc,
                 "_id": doc.get("_id") or uuid.uuid4().hex,
             }
+            self._save_to_disk()
 
     async def update_one(self, filter: dict, update: dict) -> None:
         # Only the patterns used by our auth router are implemented.
         with _in_memory_lock:
+            self._load_from_disk_if_needed()
             if "_id" in filter:
                 target = None
                 for email, doc in _in_memory_users.items():
@@ -71,6 +122,7 @@ class InMemoryUsersCollection:
             set_doc = (update or {}).get("$set") or {}
             for k, v in (set_doc.items() if isinstance(set_doc, dict) else []):
                 doc[k] = v
+            self._save_to_disk()
 
 
 class InMemorySyncCollection:
@@ -109,7 +161,12 @@ class ResilientUsersCollection:
 
     async def find_one(self, query: dict) -> dict | None:
         try:
-            return await self._motor.find_one(query)
+            found = await self._motor.find_one(query)
+            if found:
+                return found
+            # If Mongo is reachable but the user only exists in local fallback
+            # (e.g. account created during a transient outage), still allow login.
+            return await self._mem.find_one(query)
         except Exception as exc:
             if _mongo_unreachable(exc):
                 return await self._mem.find_one(query)
@@ -127,6 +184,9 @@ class ResilientUsersCollection:
     async def update_one(self, filter: dict, update: dict) -> None:
         try:
             await self._motor.update_one(filter, update)
+            # Keep local fallback mirror reasonably in sync for accounts that may
+            # exist only in fallback storage.
+            await self._mem.update_one(filter, update)
         except Exception as exc:
             if _mongo_unreachable(exc):
                 await self._mem.update_one(filter, update)

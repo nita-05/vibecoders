@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { AppHeader } from "@/components/AppHeader";
+import { BrandLogo } from "@/components/BrandLogo";
 import { apiBase, apiFetch } from "@/lib/api";
 import {
   getOrCreateStudioSyncKey,
@@ -37,11 +37,13 @@ type HistoryEntry = {
   ts: number;
 };
 type SafetyState = { label: string; tone: "good" | "warn" };
+type SidebarView = "builder" | "profile" | "projects";
 
 const PROJECTS_KEY = "vb-local-projects";
 const CURRENT_PROJECT_KEY = "vb-local-current-project";
 const HISTORY_KEY_BASE = "vibe-coding-history";
 const MAX_HISTORY = 10;
+const LANDING_PROMPT_DRAFT_KEY = "vb-landing-prompt-draft";
 
 const TEMPLATES = [
   {
@@ -228,11 +230,134 @@ function parseSseDataChunk(buffer: string): { events: string[]; rest: string } {
   return { events, rest };
 }
 
+const LUA_KEYWORDS = new Set([
+  "and",
+  "break",
+  "do",
+  "else",
+  "elseif",
+  "end",
+  "false",
+  "for",
+  "function",
+  "if",
+  "in",
+  "local",
+  "nil",
+  "not",
+  "or",
+  "repeat",
+  "return",
+  "then",
+  "true",
+  "until",
+  "while",
+]);
+
+function highlightLuaLine(line: string, lineIdx: number): ReactNode[] {
+  const out: ReactNode[] = [];
+  let i = 0;
+  let part = 0;
+
+  while (i < line.length) {
+    // Lua single-line comment.
+    if (line[i] === "-" && line[i + 1] === "-") {
+      out.push(
+        <span key={`l${lineIdx}-p${part++}`} className="text-emerald-300/85">
+          {line.slice(i)}
+        </span>
+      );
+      break;
+    }
+
+    // Strings: "..." or '...'
+    if (line[i] === '"' || line[i] === "'") {
+      const quote = line[i];
+      let j = i + 1;
+      while (j < line.length) {
+        if (line[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (line[j] === quote) {
+          j += 1;
+          break;
+        }
+        j += 1;
+      }
+      out.push(
+        <span key={`l${lineIdx}-p${part++}`} className="text-amber-300">
+          {line.slice(i, j)}
+        </span>
+      );
+      i = j;
+      continue;
+    }
+
+    // Identifiers / keywords.
+    if (/[A-Za-z_]/.test(line[i])) {
+      let j = i + 1;
+      while (j < line.length && /[A-Za-z0-9_]/.test(line[j])) j += 1;
+      const token = line.slice(i, j);
+      out.push(
+        <span
+          key={`l${lineIdx}-p${part++}`}
+          className={LUA_KEYWORDS.has(token) ? "text-sky-300 font-semibold" : "text-cyan-100"}
+        >
+          {token}
+        </span>
+      );
+      i = j;
+      continue;
+    }
+
+    // Numbers.
+    if (/[0-9]/.test(line[i])) {
+      let j = i + 1;
+      while (j < line.length && /[0-9._]/.test(line[j])) j += 1;
+      out.push(
+        <span key={`l${lineIdx}-p${part++}`} className="text-fuchsia-300">
+          {line.slice(i, j)}
+        </span>
+      );
+      i = j;
+      continue;
+    }
+
+    // Everything else (operators, punctuation, spaces).
+    out.push(
+      <span key={`l${lineIdx}-p${part++}`} className="text-cyan-100">
+        {line[i]}
+      </span>
+    );
+    i += 1;
+  }
+
+  return out;
+}
+
+function highlightLuaCode(luaText: string): ReactNode {
+  const lines = luaText.split("\n");
+  return (
+    <span className="block">
+      {lines.map((line, idx) => (
+        <span key={`line-${idx}`} className="grid grid-cols-[3.25rem_1fr] gap-3">
+          <span className="select-none pr-2 text-right text-xs font-semibold text-slate-500/90">
+            {idx + 1}
+          </span>
+          <span>{highlightLuaLine(line, idx)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function AppBuilderPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   /** Set only from TopNav “Open app” (`/app?gate=1`). Other links use `/app` and skip this gate. */
   const signInFromNav = searchParams.get("gate") === "1";
+  const openAuthFromQuery = searchParams.get("auth") === "1";
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
 
   const AUTH_KEY = "vibecoder-auth-token";
@@ -297,6 +422,32 @@ function AppBuilderPageContent() {
       router.replace("/app");
     }
   }, [authLoaded, signInFromNav, authToken, router]);
+
+  useEffect(() => {
+    if (!authLoaded || authToken || !openAuthFromQuery) return;
+    setAuthPanel("login");
+    setAuthError("");
+    setForgotMessage("");
+    setAuthModalOpen(true);
+  }, [authLoaded, authToken, openAuthFromQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#generate-idea") return;
+    const t = setTimeout(() => {
+      promptRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      promptRef.current?.focus();
+    }, 120);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const draft = window.localStorage.getItem(LANDING_PROMPT_DRAFT_KEY);
+    if (!draft || !draft.trim()) return;
+    setPrompt(draft);
+    window.localStorage.removeItem(LANDING_PROMPT_DRAFT_KEY);
+  }, []);
 
   function formatApiDetail(data: unknown): string {
     const d = data as { detail?: unknown };
@@ -427,6 +578,55 @@ function AppBuilderPageContent() {
     router.push("/");
   }
 
+  function openSignInModal() {
+    setAuthPanel("login");
+    setAuthError("");
+    setForgotMessage("");
+    setAuthModalOpen(true);
+  }
+
+  function startNewChat() {
+    setPrompt("");
+    setFiles([]);
+    setLua("");
+    setDescription("");
+    setSetupSteps(null);
+    setChangeSummary(null);
+    setError("");
+    setPlacementSummary("");
+    setSidebarView("builder");
+  }
+
+  async function loadAccountRecentPrompts(token: string) {
+    try {
+      const res = await apiFetch<{ items?: string[] }>("/auth/recent-prompts", { method: "GET", token });
+      if (!res.ok) return;
+      const items = Array.isArray(res.data.items) ? res.data.items : [];
+      setAccountRecentPrompts(items.filter((x) => typeof x === "string" && x.trim()));
+    } catch {
+      // ignore
+    }
+  }
+
+  async function saveRecentPromptForAccount(promptText: string) {
+    const token = authToken ?? (typeof window !== "undefined" ? localStorage.getItem(AUTH_KEY) : null);
+    if (!token) return;
+    const text = (promptText || "").trim();
+    if (!text) return;
+    try {
+      const res = await apiFetch<{ items?: string[] }>("/auth/recent-prompts", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ prompt: text }),
+      });
+      if (!res.ok) return;
+      const items = Array.isArray(res.data.items) ? res.data.items : [];
+      setAccountRecentPrompts(items.filter((x) => typeof x === "string" && x.trim()));
+    } catch {
+      // ignore
+    }
+  }
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string>("default");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -461,6 +661,9 @@ function AppBuilderPageContent() {
   const [recipePartName, setRecipePartName] = useState<string>("PowerUpPart");
   const [recipeCoinPoints, setRecipeCoinPoints] = useState<string>("1");
   const [recipeCoinName, setRecipeCoinName] = useState<string>("Coin");
+  const [sidebarView, setSidebarView] = useState<SidebarView>("builder");
+  const [accountRecentPrompts, setAccountRecentPrompts] = useState<string[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     setStudioSyncEnabledState(getStudioSyncEnabled());
@@ -489,12 +692,46 @@ function AppBuilderPageContent() {
     setHistory(loadHistory(currentProjectId));
   }, [currentProjectId]);
 
+  useEffect(() => {
+    if (!authToken) {
+      setAccountRecentPrompts([]);
+      return;
+    }
+    void loadAccountRecentPrompts(authToken);
+  }, [authToken]);
+
   const currentProjectName = useMemo(() => {
     const p = projects.find((x) => x.id === currentProjectId);
     return p?.name || "Default";
   }, [projects, currentProjectId]);
 
   const canSubmit = useMemo(() => prompt.trim().length > 0 && !loading, [prompt, loading]);
+  const highlightedLua = useMemo(() => (lua.trim() ? highlightLuaCode(lua) : null), [lua]);
+  const sidebarRecentPrompts = useMemo(() => {
+    const seen = new Set<string>();
+    const localPrompts = history
+      .map((h) => (h.prompt || "").trim())
+      .filter((x) => x.length > 0)
+      .filter((x) => {
+        if (seen.has(x)) return false;
+        seen.add(x);
+        return true;
+      });
+
+    if (!authToken) return localPrompts.slice(0, 10);
+
+    // Signed-in users can still generate locally; merge account + local so sidebar never looks empty.
+    const accountPrompts = accountRecentPrompts
+      .map((x) => (x || "").trim())
+      .filter((x) => x.length > 0)
+      .filter((x) => {
+        if (seen.has(x)) return false;
+        seen.add(x);
+        return true;
+      });
+
+    return [...accountPrompts, ...localPrompts].slice(0, 10);
+  }, [authToken, accountRecentPrompts, history]);
 
   function toggleStudioSync(on: boolean) {
     setStudioSyncEnabledState(on);
@@ -631,6 +868,7 @@ function AppBuilderPageContent() {
           setup_steps: null
         });
         setHistory(updated);
+        void saveRecentPromptForAccount(prompt);
         void tryPushStudio(finalLua);
       } else {
         // Keep existing JSON endpoint for image-assisted generation.
@@ -658,6 +896,7 @@ function AppBuilderPageContent() {
           setup_steps: outSetup
         });
         setHistory(updated);
+        void saveRecentPromptForAccount(prompt);
         void tryPushStudio(outLua);
       }
     } catch (e) {
@@ -733,6 +972,7 @@ function AppBuilderPageContent() {
         setup_steps: null
       });
       setHistory(updated);
+      void saveRecentPromptForAccount(prompt);
       void tryPushStudio(finalLua);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -813,6 +1053,24 @@ function AppBuilderPageContent() {
     setPfDescription("");
   }
 
+  function deleteProject(projectId: string) {
+    const targetId = (projectId || "").trim();
+    if (!targetId) return;
+
+    const remaining = projects.filter((p) => p.id !== targetId);
+    const nextProjects = remaining.length ? remaining : [{ id: "default", name: "Default", description: "" }];
+
+    saveLocalProjects(nextProjects);
+    setProjects(nextProjects);
+
+    if (currentProjectId === targetId) {
+      const fallbackId = nextProjects[0].id;
+      setCurrentProjectId(fallbackId);
+      localStorage.setItem(CURRENT_PROJECT_KEY, fallbackId);
+      setHistory(loadHistory(fallbackId));
+    }
+  }
+
   function applyRecipe(kind: "powerup" | "coin") {
     if (kind === "powerup") {
       const part = recipePartName || "PowerUpPart";
@@ -844,12 +1102,9 @@ function AppBuilderPageContent() {
     if (promptRef.current) promptRef.current.focus();
   }
 
-  const showHeaderAccount = authLoaded && (!!authToken || !!authEmail);
-
   if (!authLoaded) {
     return (
       <div>
-        <AppHeader email={null} showAccountActions={false} onLogout={logout} />
         <div className="text-sm text-slate-400">Loading...</div>
       </div>
     );
@@ -859,8 +1114,6 @@ function AppBuilderPageContent() {
   if (signInFromNav && !authToken) {
     return (
       <div>
-        <AppHeader email={authEmail} showAccountActions={showHeaderAccount} onLogout={logout} />
-
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-700/40 bg-slate-950/90 p-5 shadow-2xl">
             <div className="text-base font-extrabold">Sign in to VibeCoder</div>
@@ -1037,23 +1290,233 @@ function AppBuilderPageContent() {
 
   return (
     <div>
-      <AppHeader
-        email={authEmail}
-        showAccountActions={showHeaderAccount}
-        onLogout={logout}
-        onSignInClick={
-          !authToken
-            ? () => {
-                setAuthPanel("login");
-                setAuthError("");
-                setForgotMessage("");
-                setAuthModalOpen(true);
-              }
-            : undefined
-        }
-      />
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={() => setSidebarOpen((v) => !v)}
+          className="rounded-xl bg-slate-900/60 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/80"
+          aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+          title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        >
+          <span className="text-sm leading-none">☰</span>
+        </button>
+      </div>
+      <div className={sidebarOpen ? "grid gap-5 lg:grid-cols-[240px_1fr]" : "grid gap-5"}>
+        {sidebarOpen ? (
+        <aside className="sticky top-4 flex h-[calc(100vh-2rem)] flex-col rounded-2xl border border-slate-700/40 bg-slate-950/60 p-3">
+          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+            <BrandLogo size="md" />
+            <div className="min-w-0">
+              <div className="bg-gradient-to-r from-white via-cyan-50 to-indigo-200 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">
+                VibeCoder
+              </div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Roblox AI Builder</div>
+            </div>
+          </div>
 
-      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+          <div className="mt-4">
+            <div className="px-3 text-xs font-extrabold uppercase tracking-wide text-slate-500">Recent prompts</div>
+            <div className="mt-2 max-h-[220px] space-y-1.5 overflow-auto pr-1">
+              {sidebarRecentPrompts.length === 0 ? (
+                <div className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-500">
+                  No recent prompts yet.
+                </div>
+              ) : (
+                sidebarRecentPrompts.map((item, idx) => (
+                  <button
+                    key={`${idx}-${item.slice(0, 20)}`}
+                    type="button"
+                    onClick={() => {
+                      const match = history.find((h) => (h.prompt || "").trim() === item.trim());
+                      if (match) {
+                        loadHistoryEntry(match);
+                      } else {
+                        setPrompt(item);
+                      }
+                      setSidebarView("builder");
+                      setError("");
+                    }}
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-300/90 hover:bg-slate-900/40"
+                    title={item}
+                  >
+                    {item.length > 48 ? `${item.slice(0, 48)}...` : item}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 h-px bg-slate-800/70" />
+
+          <div className="mt-3 space-y-1.5">
+            <button
+              type="button"
+              onClick={startNewChat}
+              className="w-full rounded-xl px-3 py-2 text-left text-sm font-bold text-slate-300 hover:bg-slate-900/60"
+            >
+              New chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarView("projects")}
+              className={
+                sidebarView === "projects"
+                  ? "w-full rounded-xl bg-cyan-400/15 px-3 py-2 text-left text-sm font-bold text-cyan-100 ring-1 ring-cyan-400/35"
+                  : "w-full rounded-xl px-3 py-2 text-left text-sm font-bold text-slate-300 hover:bg-slate-900/60"
+              }
+            >
+              Projects
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarView("profile")}
+              className={
+                sidebarView === "profile"
+                  ? "w-full rounded-xl bg-cyan-400/15 px-3 py-2 text-left text-sm font-bold text-cyan-100 ring-1 ring-cyan-400/35"
+                  : "w-full rounded-xl px-3 py-2 text-left text-sm font-bold text-slate-300 hover:bg-slate-900/60"
+              }
+            >
+              Profile
+            </button>
+          </div>
+
+          <div className="mt-auto space-y-2">
+            {!authToken ? (
+              <button
+                type="button"
+                onClick={openSignInModal}
+                className="w-full rounded-xl bg-cyan-400/20 px-3 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+              >
+                Sign up
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={logout}
+              disabled={!authToken}
+              className="w-full rounded-xl bg-slate-900/60 px-3 py-2 text-sm font-extrabold text-slate-200 ring-1 ring-slate-700/60 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Log out
+            </button>
+          </div>
+        </aside>
+        ) : null}
+
+        <div>
+          {sidebarView === "profile" ? (
+            <section className="rounded-2xl border border-slate-700/40 bg-slate-950/30 p-5">
+              <h1 className="text-lg font-extrabold">Profile</h1>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-700/45 bg-slate-950/50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</div>
+                  <div className="mt-1 break-all text-sm font-bold text-slate-100">
+                    {authEmail || "Not signed in"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-700/45 bg-slate-950/50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
+                  <div className="mt-1 text-sm font-bold text-slate-100">{authToken ? "Signed in" : "Guest mode"}</div>
+                </div>
+                <div className="rounded-xl border border-slate-700/45 bg-slate-950/50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Projects</div>
+                  <div className="mt-1 text-sm font-bold text-slate-100">{projects.length}</div>
+                </div>
+                <div className="rounded-xl border border-slate-700/45 bg-slate-950/50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current project</div>
+                  <div className="mt-1 text-sm font-bold text-slate-100">{currentProjectName}</div>
+                </div>
+              </div>
+            </section>
+          ) : sidebarView === "projects" ? (
+            <section className="rounded-2xl border border-slate-700/40 bg-slate-950/30 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-lg font-extrabold">Projects</h1>
+                <button
+                  type="button"
+                  onClick={() => setProjectFormOpen(true)}
+                  className="rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                >
+                  New
+                </button>
+              </div>
+
+              {projectFormOpen ? (
+                <div className="mt-4 rounded-2xl border border-slate-700/40 bg-slate-950/60 p-3">
+                  <div className="text-sm font-extrabold">New project</div>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    placeholder="e.g. Coin Collector MVP"
+                    value={pfName}
+                    onChange={(e) => setPfName(e.target.value)}
+                  />
+                  <textarea
+                    className="mt-2 w-full resize-y rounded-xl border border-slate-700/50 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none"
+                    placeholder="Description (optional)"
+                    rows={3}
+                    value={pfDescription}
+                    onChange={(e) => setPfDescription(e.target.value)}
+                  />
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setProjectFormOpen(false)}
+                      className="flex-1 rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createProject}
+                      className="flex-1 rounded-xl bg-cyan-400/20 px-3 py-2 text-xs font-extrabold text-cyan-100 ring-1 ring-cyan-400/40"
+                    >
+                      Create
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 space-y-2">
+                {projects.length === 0 ? (
+                  <div className="text-sm font-semibold text-slate-500">No projects yet.</div>
+                ) : (
+                  projects.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-extrabold text-slate-100">{p.name}</div>
+                        {p.description ? (
+                          <div className="truncate text-xs font-semibold text-slate-400">{p.description}</div>
+                        ) : null}
+                      </div>
+                      <div className="ml-auto flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentProjectId(p.id);
+                            localStorage.setItem(CURRENT_PROJECT_KEY, p.id);
+                            startNewChat();
+                          }}
+                          className="rounded-lg bg-slate-900/50 px-3 py-1.5 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60"
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteProject(p.id)}
+                          className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-extrabold text-red-200 ring-1 ring-red-400/35 hover:bg-red-500/25"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : (
+            <div className="grid gap-5 xl:grid-cols-[320px_1fr]">
         <aside className="rounded-2xl border border-slate-700/40 bg-slate-950/30 p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -1315,45 +1778,13 @@ function AppBuilderPageContent() {
             ) : null}
           </div>
 
-          <div className="mt-5">
-            <div className="text-sm font-extrabold">Recent prompts</div>
-            <div className="mt-2 max-h-[200px] space-y-2 overflow-auto pr-1">
-              {history.length === 0 ? (
-                <div className="text-xs font-semibold text-slate-500">No history yet. Generate something.</div>
-              ) : (
-                history.map((h, idx) => (
-                  <div key={h.ts} className="flex items-center gap-2 rounded-xl border border-slate-700/40 bg-slate-950/40 px-2 py-2">
-                    <button
-                      type="button"
-                      onClick={() => loadHistoryEntry(h)}
-                      className="flex-1 truncate text-left text-xs font-semibold text-slate-200 hover:underline"
-                      title={h.prompt}
-                    >
-                      {(h.prompt || "").slice(0, 30) + ((h.prompt || "").length > 30 ? "..." : "")}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-lg px-1 text-xs font-bold text-slate-400 hover:bg-slate-900/50"
-                      onClick={() => {
-                        const updated = removeHistoryIndex(currentProjectId, idx);
-                        setHistory(updated);
-                      }}
-                      aria-label="Remove from history"
-                    >
-                      x
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
         </aside>
 
-        <main className="rounded-2xl border border-slate-700/40 bg-slate-950/30 p-5">
+        <main id="generate-idea" className="rounded-2xl border border-slate-700/40 bg-slate-950/30 p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-lg font-extrabold">Code Generation</h1>
-              <div className="mt-1 text-sm text-slate-300">Describe a mechanic and generate minimal Studio-ready Lua.</div>
+              <div className="mt-1 text-base text-slate-300">Generate your idea/prompt to code.</div>
             </div>
             <div className="mt-1 rounded-full px-3 py-2 text-xs font-extrabold ring-1 ring-slate-700/60">
               <span
@@ -1458,6 +1889,21 @@ function AppBuilderPageContent() {
                 >
                   Download .lua
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLua("");
+                    setDescription("");
+                    setSetupSteps(null);
+                    setChangeSummary(null);
+                    setPlacementSummary("");
+                    setCopied(false);
+                    setError("");
+                  }}
+                  className="rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60"
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
@@ -1489,13 +1935,26 @@ function AppBuilderPageContent() {
               </div>
             ) : null}
 
-            <div className="mt-3 rounded-xl border border-slate-700/40 bg-slate-950/60">
-              <pre className="max-h-[520px] overflow-auto p-4 text-xs text-slate-100">
-                <code>{lua || "-- Generated Lua will appear here."}</code>
+            <div
+              className={
+                lua.trim()
+                  ? "mt-3 rounded-xl border border-cyan-400/35 bg-slate-950/75 ring-1 ring-cyan-500/25 shadow-[0_0_30px_rgba(34,211,238,0.08)]"
+                  : "mt-3 rounded-xl border border-slate-700/40 bg-slate-950/60"
+              }
+            >
+              <pre className="max-h-[76vh] min-h-[460px] overflow-auto p-6 text-base leading-relaxed lg:text-lg">
+                {lua.trim() ? (
+                  <code className="font-mono">{highlightedLua}</code>
+                ) : (
+                  <code className="font-mono text-slate-300">-- Generated Lua will appear here.</code>
+                )}
               </pre>
             </div>
           </div>
         </main>
+      </div>
+          )}
+        </div>
       </div>
 
       {authModalOpen && !authToken ? (
@@ -1514,10 +1973,6 @@ function AppBuilderPageContent() {
               <div>
                 <div id="auth-modal-title" className="text-base font-extrabold">
                   Sign in to VibeCoder
-                </div>
-                <div className="mt-1 text-sm font-semibold text-slate-400">
-                  Sign in to save projects on your account and use the same JWT in the Studio plugin. You can still try
-                  the builder locally without an account (data stays in this browser).
                 </div>
               </div>
               <button

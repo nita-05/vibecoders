@@ -17,5 +17,68 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Global scrollbar theme (matches dark background) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(51, 65, 85, 0.95) rgba(7, 11, 24, 0.95);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(7, 11, 24, 0.95);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.95), rgba(30, 41, 59, 0.95));
+  border: 2px solid rgba(7, 11, 24, 0.95);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(71, 85, 105, 0.95), rgba(51, 65, 85, 0.95));
+}
+
+*::-webkit-scrollbar-corner {
+  background: rgba(7, 11, 24, 0.95);
+}
+
 /* Bottom safe area on phones (home indicator) — applied via layout padding */
+
+.template-marquee {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.25rem;
+}
+
+.template-marquee-track {
+  display: flex;
+  gap: 1rem;
+  width: fit-content;
+  animation: none;
+  will-change: transform;
+}
+
+.template-marquee:hover .template-marquee-track {
+  animation-play-state: running;
+}
+
+@keyframes template-roll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(-50% - 0.5rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-marquee-track {
+    animation: none;
+  }
+}
 
