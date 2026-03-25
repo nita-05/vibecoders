@@ -1,6 +1,7 @@
 import time
 import asyncio
 from collections import defaultdict, deque
+import logging
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,18 +66,38 @@ app.include_router(generations_router)
 app.include_router(plugin_stream_router)
 
 MONGODB_URI = os.getenv("DATABASE_URL")
+logger = logging.getLogger("uvicorn.error")
 
 
 @app.on_event("startup")
 async def startup_db() -> None:
     if MONGODB_URI:
         init_mongo(MONGODB_URI)
-        # If Mongo is unreachable (common with Atlas TLS/SSL issues),
-        # disable it so auth/profiles can fall back to in-memory.
-        try:
-            if db_module.mongo_client:
-                await asyncio.wait_for(db_module.mongo_client.admin.command("ping"), timeout=5)
-        except Exception:
+        # Warm up the Mongo connection so the *first* real auth request is fast.
+        # Sometimes Atlas/TLS may fail transiently right after startup, so we retry a few times.
+        ping_ok = False
+        attempts = int(os.getenv("MONGODB_PING_RETRIES", "3") or "3")
+        for _ in range(max(1, attempts)):
+            try:
+                if db_module.mongo_client:
+                    await asyncio.wait_for(db_module.mongo_client.admin.command("ping"), timeout=5)
+                ping_ok = True
+                break
+            except Exception:
+                await asyncio.sleep(1)
+
+        if ping_ok:
+            # Ensure `users.email` is indexed for fast `find_one({"email": ...})`.
+            # If the index already exists, Mongo will no-op.
+            try:
+                db = db_module.get_db()
+                users_coll_name = (os.getenv("MONGODB_USERS_COLLECTION") or "users").strip()
+                coll = db.get_collection(users_coll_name)
+                await coll.create_index([("email", 1)], name="users_email_idx", unique=False)
+            except Exception:
+                # Index creation failure shouldn't block startup.
+                pass
+        else:
             close_mongo()
 
 

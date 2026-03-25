@@ -178,6 +178,9 @@ class AuthLoginRequest(BaseModel):
 class AuthTokenResponse(BaseModel):
     access_token: str = Field(..., description="JWT access token")
     token_type: str = Field(default="bearer")
+    # Optional fields to avoid extra round-trips on the initial sign-in.
+    email: str | None = Field(default=None, description="Normalized user email")
+    recent_prompts: list[str] | None = Field(default=None, description="Recent prompts for the signed-in user")
 
 
 class MeResponse(BaseModel):

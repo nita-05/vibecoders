@@ -160,6 +160,14 @@ def _norm_email(email: str) -> str:
     return (email or "").strip().lower()
 
 
+def _clean_recent_prompts(items: object) -> list[str]:
+    """Return a sanitized list of recent prompts (max 20 items)."""
+    if not isinstance(items, list):
+        return []
+    cleaned = [str(x).strip() for x in items if isinstance(x, str) and str(x).strip()]
+    return cleaned[:20]
+
+
 @router.post("/signup", response_model=AuthTokenResponse)
 async def signup(payload: AuthSignupRequest, users: AsyncIOMotorCollection = Depends(get_users_collection)) -> AuthTokenResponse:
     email = _norm_email(payload.email)
@@ -184,7 +192,11 @@ async def signup(payload: AuthSignupRequest, users: AsyncIOMotorCollection = Dep
         }
     )
 
-    return AuthTokenResponse(access_token=_create_access_token(email=email))
+    return AuthTokenResponse(
+        access_token=_create_access_token(email=email),
+        email=email,
+        recent_prompts=[],
+    )
 
 
 @router.post("/login", response_model=AuthTokenResponse)
@@ -196,7 +208,11 @@ async def login(payload: AuthLoginRequest, users: AsyncIOMotorCollection = Depen
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
     await users.update_one({"_id": user["_id"]}, {"$set": {"last_login_at": datetime.now(timezone.utc)}})
-    return AuthTokenResponse(access_token=_create_access_token(email=email))
+    return AuthTokenResponse(
+        access_token=_create_access_token(email=email),
+        email=email,
+        recent_prompts=_clean_recent_prompts(user.get("recent_prompts")),
+    )
 
 
 @router.get("/recent-prompts")

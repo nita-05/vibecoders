@@ -372,6 +372,7 @@ function AppBuilderPageContent() {
   const [forgotMessage, setForgotMessage] = useState<string>("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const logoutRequestedRef = useRef(false);
+  const recentPromptsLoadedRef = useRef(false);
 
   useEffect(() => {
     async function loadAndVerify() {
@@ -382,6 +383,7 @@ function AppBuilderPageContent() {
         if (!candidate) {
           setAuthToken(null);
           setAuthEmail(null);
+          recentPromptsLoadedRef.current = false;
           return;
         }
 
@@ -403,11 +405,13 @@ function AppBuilderPageContent() {
         if (logoutRequestedRef.current) return;
         setAuthEmail(me?.email ? String(me.email) : null);
         if (logoutRequestedRef.current) return;
+        recentPromptsLoadedRef.current = false;
         setAuthToken(candidate);
       } catch {
         if (logoutRequestedRef.current) return;
         setAuthToken(null);
         setAuthEmail(null);
+        recentPromptsLoadedRef.current = false;
       } finally {
         if (!logoutRequestedRef.current) setAuthLoaded(true);
       }
@@ -515,7 +519,9 @@ function AppBuilderPageContent() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json().catch(() => ({} as { detail?: string; access_token?: string }));
+      const data = await res.json().catch(
+        () => ({} as { detail?: string; access_token?: string; email?: string; recent_prompts?: string[] })
+      );
       if (!res.ok) {
         if (res.status === 409 && mode === "signup") {
           setAuthError(
@@ -536,25 +542,17 @@ function AppBuilderPageContent() {
 
       localStorage.setItem(AUTH_KEY, token);
       setAuthToken(token);
+      setAuthEmail(data?.email ? String(data.email) : null);
+      if (Array.isArray(data?.recent_prompts)) {
+        const cleaned = data.recent_prompts.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim());
+        setAccountRecentPrompts(cleaned);
+        recentPromptsLoadedRef.current = true;
+      } else {
+        recentPromptsLoadedRef.current = false;
+      }
       setAuthModalOpen(false);
       if (signInFromNav) {
         router.replace("/app");
-      }
-
-      // Fetch profile email for UI display.
-      try {
-        const meRes = await fetch(apiBase() + "/auth/me", {
-          method: "GET",
-          headers: { Authorization: "Bearer " + token },
-        });
-        if (meRes.ok) {
-          const me = await meRes.json().catch(() => null) as { email?: string } | null;
-          setAuthEmail(me?.email ? String(me.email) : null);
-        } else {
-          setAuthEmail(null);
-        }
-      } catch {
-        setAuthEmail(null);
       }
     } catch (e) {
       setAuthError(e instanceof Error ? e.message : "Authentication failed.");
@@ -572,6 +570,8 @@ function AppBuilderPageContent() {
     }
     setAuthToken(null);
     setAuthEmail(null);
+    setAccountRecentPrompts([]);
+    recentPromptsLoadedRef.current = false;
     setAuthError("");
     setForgotMessage("");
     setAuthPanel("login");
@@ -603,6 +603,7 @@ function AppBuilderPageContent() {
       if (!res.ok) return;
       const items = Array.isArray(res.data.items) ? res.data.items : [];
       setAccountRecentPrompts(items.filter((x) => typeof x === "string" && x.trim()));
+      recentPromptsLoadedRef.current = true;
     } catch {
       // ignore
     }
@@ -633,7 +634,9 @@ function AppBuilderPageContent() {
 
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const actionInFlightRef = useRef<"none" | "generate" | "refine">("none");
   const [error, setError] = useState("");
 
   const [lua, setLua] = useState("");
@@ -695,8 +698,10 @@ function AppBuilderPageContent() {
   useEffect(() => {
     if (!authToken) {
       setAccountRecentPrompts([]);
+      recentPromptsLoadedRef.current = false;
       return;
     }
+    if (recentPromptsLoadedRef.current) return;
     void loadAccountRecentPrompts(authToken);
   }, [authToken]);
 
@@ -705,7 +710,8 @@ function AppBuilderPageContent() {
     return p?.name || "Default";
   }, [projects, currentProjectId]);
 
-  const canSubmit = useMemo(() => prompt.trim().length > 0 && !loading, [prompt, loading]);
+  const busy = generating || refining;
+  const canSubmit = useMemo(() => prompt.trim().length > 0 && !busy, [prompt, busy]);
   const highlightedLua = useMemo(() => (lua.trim() ? highlightLuaCode(lua) : null), [lua]);
   const sidebarRecentPrompts = useMemo(() => {
     const seen = new Set<string>();
@@ -814,8 +820,10 @@ function AppBuilderPageContent() {
   }
 
   async function onGenerate() {
+    if (actionInFlightRef.current !== "none") return;
     setError("");
-    setLoading(true);
+    actionInFlightRef.current = "generate";
+    setGenerating(true);
     try {
       const picked = files.slice(0, 2);
       for (const f of picked) {
@@ -902,11 +910,13 @@ function AppBuilderPageContent() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setLoading(false);
+      setGenerating(false);
+      actionInFlightRef.current = "none";
     }
   }
 
   async function onRefine() {
+    if (actionInFlightRef.current !== "none") return;
     if (!lua.trim()) {
       setError("Generate code first, then ask for improvements in Prompt and click Refine Existing Game.");
       return;
@@ -917,7 +927,8 @@ function AppBuilderPageContent() {
     }
 
     setError("");
-    setLoading(true);
+    actionInFlightRef.current = "refine";
+    setRefining(true);
     try {
       setDescription("");
       setSetupSteps(null);
@@ -977,7 +988,8 @@ function AppBuilderPageContent() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setLoading(false);
+      setRefining(false);
+      actionInFlightRef.current = "none";
     }
   }
 
@@ -1837,15 +1849,15 @@ function AppBuilderPageContent() {
               onClick={onGenerate}
               className="rounded-xl bg-cyan-400/20 px-4 py-2 text-sm font-extrabold text-cyan-100 ring-1 ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Generating..." : "Generate Code"}
+              {generating ? "Generating..." : "Generate Code"}
             </button>
             <button
               type="button"
-              disabled={loading || !lua.trim()}
+              disabled={busy || !lua.trim()}
               onClick={onRefine}
               className="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-extrabold text-emerald-100 ring-1 ring-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Please wait..." : "Refine Existing Game"}
+              {refining ? "Please wait..." : "Refine Existing Game"}
             </button>
             <button
               type="button"
