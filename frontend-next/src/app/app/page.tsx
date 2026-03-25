@@ -544,7 +544,9 @@ function AppBuilderPageContent() {
       setAuthToken(token);
       setAuthEmail(data?.email ? String(data.email) : null);
       if (Array.isArray(data?.recent_prompts)) {
-        const cleaned = data.recent_prompts.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim());
+        const cleaned = (data.recent_prompts as unknown[])
+          .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+          .map((x) => x.trim());
         setAccountRecentPrompts(cleaned);
         recentPromptsLoadedRef.current = true;
       } else {
