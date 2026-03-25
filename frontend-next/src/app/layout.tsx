@@ -16,8 +16,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className="min-h-dvh antialiased text-slate-200 selection:bg-cyan-500/25 selection:text-white">
-        <div className="mx-auto max-w-7xl px-3 pb-[max(2rem,env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-10 sm:pt-6 lg:px-8">
+      <body className="min-h-dvh antialiased text-[16px] leading-relaxed text-slate-200 selection:bg-cyan-500/25 selection:text-white sm:text-base">
+        <div className="w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-4 sm:px-4 sm:pb-10 sm:pt-6 lg:px-6">
           {children}
         </div>
       </body>

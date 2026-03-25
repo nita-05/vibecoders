@@ -1324,7 +1324,7 @@ function AppBuilderPageContent() {
               <div className="bg-gradient-to-r from-white via-cyan-50 to-indigo-200 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">
                 VibeCoder
               </div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Roblox AI Builder</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Roblox AI Builder</div>
             </div>
           </div>
 
@@ -1616,9 +1616,9 @@ function AppBuilderPageContent() {
               />
               Push generated code to Studio automatically
             </label>
-            <div className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Sync key</div>
+            <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Sync key</div>
             <div className="mt-1 flex gap-2">
-              <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-700/50 bg-slate-950/60 px-2 py-1.5 font-mono text-[10px] text-slate-300">
+              <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-700/50 bg-slate-950/60 px-2 py-1.5 font-mono text-xs text-slate-300">
                 {studioSyncKey || "—"}
               </div>
               <button
@@ -1629,11 +1629,11 @@ function AppBuilderPageContent() {
                 {studioSyncCopied ? "Copied!" : "Copy"}
               </button>
             </div>
-            <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Access token (paste in Studio plugin)
             </div>
             <div className="mt-1 flex gap-2">
-              <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-700/50 bg-slate-950/60 px-2 py-1.5 font-mono text-[10px] text-slate-500">
+              <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-700/50 bg-slate-950/60 px-2 py-1.5 font-mono text-xs text-slate-500">
                 {authToken ? "•••••••• (hidden)" : "— sign in to obtain"}
               </div>
               <button
@@ -1677,7 +1677,7 @@ function AppBuilderPageContent() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-extrabold">{t.title}</div>
-                    <div className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-2 py-1 text-[10px] font-bold uppercase text-indigo-200">
+                    <div className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-2 py-1 text-xs font-bold uppercase text-indigo-200">
                       {t.pill}
                     </div>
                   </div>

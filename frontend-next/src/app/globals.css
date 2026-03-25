@@ -4,6 +4,10 @@
   color-scheme: dark;
 }
 
+html {
+  font-size: 16px;
+}
+
 body {
   background-color: #060814;
   background-image:
@@ -15,6 +19,7 @@ body {
   color: #e5e7eb;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
 }
 
 /* Global scrollbar theme (matches dark background) */

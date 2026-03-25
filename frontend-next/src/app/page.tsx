@@ -45,7 +45,9 @@ Requirements:
       } else {
         window.localStorage.removeItem("vb-landing-prompt-draft");
       }
-      window.location.href = "/app#generate-idea";
+      // If the user is not signed in, open the auth modal so the "Sign up" button is visible.
+      const authToken = window.localStorage.getItem("vibecoder-auth-token");
+      window.location.href = authToken ? "/app#generate-idea" : "/app?auth=1#generate-idea";
     }
   }
 
@@ -68,16 +70,16 @@ Requirements:
         className="relative overflow-hidden rounded-2xl border border-slate-700/40 bg-slate-950/45 p-4 shadow-[0_18px_70px_rgba(2,6,23,0.55)] backdrop-blur-sm sm:rounded-3xl sm:p-6 lg:p-8"
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(6,182,212,0.14),transparent_42%),radial-gradient(circle_at_84%_8%,rgba(99,102,241,0.16),transparent_34%)]" />
-        <div className="grid items-center gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10">
-          <div className="relative max-w-2xl">
+        <div className="grid items-center gap-8 lg:gap-10">
+          <div className="relative">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-bold text-cyan-100 sm:px-3 sm:text-xs">
+              <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-2.5 py-1 text-xs font-bold text-cyan-100 sm:px-3">
                 Describe → Roblox Lua
               </span>
-              <span className="rounded-full border border-slate-700/50 bg-slate-900/40 px-2.5 py-1 text-[11px] font-bold text-slate-200 sm:px-3 sm:text-xs">
+              <span className="rounded-full border border-slate-700/50 bg-slate-900/40 px-2.5 py-1 text-xs font-bold text-slate-200 sm:px-3">
                 Studio-ready output
               </span>
-              <span className="rounded-full border border-indigo-400/35 bg-indigo-400/10 px-2.5 py-1 text-[11px] font-bold text-indigo-100 sm:px-3 sm:text-xs">
+              <span className="rounded-full border border-indigo-400/35 bg-indigo-400/10 px-2.5 py-1 text-xs font-bold text-indigo-100 sm:px-3">
                 Optional images
               </span>
             </div>
@@ -110,7 +112,7 @@ Requirements:
               </button>
             </div>
 
-            <div className="mt-5 grid gap-2 text-xs font-semibold text-slate-300 sm:grid-cols-3">
+            <div className="mt-5 grid gap-2 text-sm font-semibold text-slate-300 sm:grid-cols-3">
               <div className="rounded-xl border border-slate-700/40 bg-slate-900/45 px-3 py-2">Fast AI-assisted output</div>
               <div className="rounded-xl border border-slate-700/40 bg-slate-900/45 px-3 py-2">Structured Studio placement</div>
               <div className="rounded-xl border border-slate-700/40 bg-slate-900/45 px-3 py-2">Template-powered start</div>
@@ -120,14 +122,14 @@ Requirements:
           <div className="relative">
             <div className="rounded-3xl border border-slate-700/35 bg-slate-950/55 p-5 shadow-[0_10px_35px_rgba(2,6,23,0.42)]">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs font-extrabold text-slate-200">Example output</div>
-                <span className="rounded-full border border-indigo-400/35 bg-indigo-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-100">
+                <div className="text-sm font-extrabold text-slate-200">Example output</div>
+                  <span className="rounded-full border border-indigo-400/35 bg-indigo-400/10 px-2.5 py-1 text-sm font-bold uppercase tracking-wide text-indigo-100">
                   Copy into Studio
                 </span>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-700/35 bg-slate-950/50">
-                <pre className="max-h-[min(320px,50vh)] overflow-auto p-4 text-xs leading-relaxed text-slate-100">
+                <pre className="max-h-[min(320px,50vh)] overflow-auto p-4 text-sm leading-relaxed text-slate-100">
                   <code>
                     {`-- Script: ServerScriptService/GameManager
 local Players = game:GetService("Players")
@@ -144,7 +146,7 @@ end
                 </pre>
               </div>
 
-              <div className="mt-3 text-xs font-semibold text-slate-400">
+              <div className="mt-3 text-sm font-semibold text-slate-400">
                 Tip: if you need multiple scripts, output each one with a header like{" "}
                 <span className="rounded bg-slate-900/60 px-1 py-0.5 font-bold text-slate-200">
                   -- Script: ServerScriptService/YourModule
@@ -177,14 +179,14 @@ end
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-extrabold text-slate-100">{x.title}</div>
-                    <div className="mt-1 text-xs font-semibold text-slate-400">Use this template, then open the app.</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-400">Use this template, then open the app.</div>
                   </div>
-                  <span className="shrink-0 rounded-full border border-slate-700/60 bg-slate-900/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-200">
+                  <span className="shrink-0 rounded-full border border-slate-700/60 bg-slate-900/40 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-slate-200">
                     {x.chip}
                   </span>
                 </div>
                 <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-700/35 bg-slate-950/50">
-                  <pre className="max-h-[min(240px,40vh)] min-w-0 overflow-auto p-4 text-xs leading-relaxed text-slate-100">
+                  <pre className="max-h-[min(240px,40vh)] min-w-0 overflow-auto p-4 text-sm leading-relaxed text-slate-100">
                     <code className="font-mono">{x.prompt}</code>
                   </pre>
                 </div>
@@ -192,7 +194,7 @@ end
                   <button
                     type="button"
                     onClick={() => applyLandingTemplate(x.prompt)}
-                    className="inline-flex rounded-xl bg-slate-900/50 px-3 py-2 text-xs font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
+                    className="inline-flex rounded-xl bg-slate-900/50 px-3 py-2 text-sm font-extrabold text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-900/70"
                   >
                     Use template
                   </button>
@@ -205,7 +207,7 @@ end
       </section>
 
       {/* 3) Product overview: “what it does” + “flow” in ONE panel (two sub-blocks) */}
-      <section id="product-overview" aria-labelledby="features-title">
+      <section id="product-overview" aria-labelledby="features-title" className="scroll-mt-28">
         <div className="rounded-3xl border border-slate-700/40 bg-slate-950/35 p-5 shadow-[0_14px_42px_rgba(2,6,23,0.34)] sm:p-7">
           <div className="space-y-10 sm:space-y-12">
             <div>
